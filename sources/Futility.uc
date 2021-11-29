@@ -1,25 +1,25 @@
 /**
- *      Config object for `AcediaAdmin_Feature`.
+ *      Config object for `Futility_Feature`.
  *      Copyright 2021 Anton Tarasenko
  *------------------------------------------------------------------------------
- * This file is part of Acedia.
+ * This file is part of Futility.
  *
- * Acedia is free software: you can redistribute it and/or modify
+ * Futility is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, version 3 of the License, or
  * (at your option) any later version.
  *
- * Acedia is distributed in the hope that it will be useful,
+ * Futility is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with Acedia.  If not, see <https://www.gnu.org/licenses/>.
+ * along with Futility.  If not, see <https://www.gnu.org/licenses/>.
  */
-class AcediaAdmin extends FeatureConfig
+class Futility extends FeatureConfig
     perobjectconfig
-    config(AcediaAdmin);
+    config(Futility);
 
 protected function AssociativeArray ToData()
 {
@@ -36,5 +36,5 @@ protected function DefaultIt()
 
 defaultproperties
 {
-    configName = "AcediaAdmin"
+    configName = "Futility"
 }

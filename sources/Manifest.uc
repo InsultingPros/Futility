@@ -22,5 +22,5 @@
 
 defaultproperties
 {
-    features(0) = class'AcediaAdmin_Feature'
+    features(0) = class'Futility_Feature'
 }
