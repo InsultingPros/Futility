@@ -46,22 +46,23 @@ protected function BuildData(CommandDataBuilder builder)
             @ "by '{$TextEmphasis --min}' option."));
 }
 
-protected function ExecutedFor(APlayer player, CommandCall result)
+protected function ExecutedFor(
+    EPlayer     player,
+    CallData    result,
+    EPlayer     callerPlayer)
 {
-    local int                   oldAmount, newAmount;
-    local int                   amount, minValue, maxValue;
-    local AssociativeArray      commandOptions;
+    local int oldAmount, newAmount;
+    local int amount, minValue, maxValue;
     //  Find min and max value boundaries
-    commandOptions = result.GetOptions();
-    minValue = commandOptions.GetIntBy(P("/min/minValue"), 0);
-    maxValue = commandOptions.GetIntBy(P("/max/maxValue"), MaxInt);
+    minValue = result.options.GetIntBy(P("/min/minValue"), 0);
+    maxValue = result.options.GetIntBy(P("/max/maxValue"), MaxInt);
     if (minValue > maxValue) {
         maxValue = minValue;
     }
     //  Change dosh
     oldAmount = player.GetDosh();
-    amount = result.GetParameters().GetInt(P("amount"));
-    if (result.GetSubCommand().IsEmpty()) {
+    amount = result.parameters.GetInt(P("amount"));
+    if (result.subCommandName.IsEmpty()) {
         newAmount = oldAmount + amount;
     }
     else {
@@ -70,10 +71,10 @@ protected function ExecutedFor(APlayer player, CommandCall result)
     }
     newAmount = Clamp(newAmount, minValue, maxValue);
     //  Announce dosh change, if necessary
-    if (!commandOptions.HasKey(P("silent"))) {
-        AnnounceDoshChange(player.Console(), oldAmount, newAmount);
+    if (!result.options.HasKey(P("silent"))) {
+        AnnounceDoshChange(player.BorrowConsole(), oldAmount, newAmount);
     }
-    player.SetDosh(newAmount);  
+    player.SetDosh(newAmount);
 }
 
 protected function AnnounceDoshChange(

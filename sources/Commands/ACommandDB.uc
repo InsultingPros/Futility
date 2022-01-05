@@ -54,7 +54,7 @@ class ACommandDB extends Command
 //      Arrays should be kept same length, elements with the same index
 //  correspond to the same pair.
 var protected array<Database>   queueWaitingListDatabases;
-var protected array<APlayer>    queueWaitingListPlayers;
+var protected array<EPlayer>    queueWaitingListPlayers;
 
 //  Auxiliary structure that corresponds to database + JSON path from resolved
 //  database link.
@@ -141,16 +141,17 @@ protected function BuildData(CommandDataBuilder builder)
             @ "data to the old one, instead of rewriting it."));
 }
 
-protected function PushPlayer(APlayer nextPlayer, Database callDatabase)
+protected function PushPlayer(EPlayer nextPlayer, Database callDatabase)
 {
-    queueWaitingListPlayers[queueWaitingListPlayers.length]     = nextPlayer;
+    queueWaitingListPlayers[queueWaitingListPlayers.length] =
+        EPlayer(nextPlayer.Copy());
     queueWaitingListDatabases[queueWaitingListDatabases.length] = callDatabase;
 }
 
-protected function APlayer PopPlayer(Database relevantDatabase)
+protected function EPlayer PopPlayer(Database relevantDatabase)
 {
     local int i;
-    local APlayer result;
+    local EPlayer result;
     if (queueWaitingListPlayers.length <= 0)    return none;
     if (queueWaitingListDatabases.length <= 0)  return none;
 
@@ -165,36 +166,37 @@ protected function APlayer PopPlayer(Database relevantDatabase)
         }
         i += 1;
     }
-    if (result != none && result.IsConnected()) {
+    if (result != none && result.IsExistent()) {
         return result;
     }
+    _.memory.Free(result);
     return none;
 }
 
-protected function Executed(CommandCall result)
+protected function Executed(CallData result, EPlayer callerPlayer)
 {
-    local AcediaObject      valueToWrite;
-    local DBPointerPair     pair;
-    local Text              subCommand;
-    subCommand = result.GetSubCommand();
+    local AcediaObject  valueToWrite;
+    local DBPointerPair pair;
+    local Text          subCommand;
+    subCommand = result.subCommandName;
     //  Try executing on of the operation that manage multiple databases
-    if (TryAPICallCommands(subCommand, result)) {
+    if (TryAPICallCommands(subCommand, callerPlayer, result.parameters)) {
         return;
     }
     //  If we have failed - it has got to be one of the operations on
     //  a single database
-    pair = TryLoadingDB(result.GetParameters().GetText(T(TDATABASE_LINK)));
+    pair = TryLoadingDB(result.parameters.GetText(T(TDATABASE_LINK)));
     if (pair.database == none)
     {
-        result.GetCallerPlayer().Console().WriteLine(T(TBAD_DBLINK));
+        callerPlayer.BorrowConsole().WriteLine(T(TBAD_DBLINK));
         return;
     }
     //  Remember the last player we are making a query to and make that query
-    PushPlayer(result.GetCallerPlayer(), pair.database);
+    PushPlayer(callerPlayer, pair.database);
     if (subCommand.StartsWith(T(TWRITE)))
     {
-        valueToWrite = result.GetParameters().GetItem(T(TJSON_VALUE));
-        if (result.GetOptions().HasKey(T(TINCREMENT)))
+        valueToWrite = result.parameters.GetItem(T(TJSON_VALUE));
+        if (result.options.HasKey(T(TINCREMENT)))
         {
             pair.database.IncrementData(pair.pointer, valueToWrite)
                 .connect = DisplayResponse;
@@ -222,16 +224,13 @@ protected function Executed(CommandCall result)
 
 //  Simple API calls
 private function bool TryAPICallCommands(
-    Text        subCommand,
-    CommandCall result)
+    Text                subCommand,
+    EPlayer             callerPlayer,
+    AssociativeArray    commandParameters)
 {
-    local APlayer           callerPlayer;
-    local AssociativeArray  commandParameters;
-    callerPlayer        = result.GetCallerPlayer();
-    commandParameters   = result.GetParameters();
     if (subCommand.IsEmpty())
     {
-        callerPlayer.Console().WriteLine(T(TNO_DEFAULT_COMMAND));
+        callerPlayer.BorrowConsole().WriteLine(T(TNO_DEFAULT_COMMAND));
         return true;
     }
     else if (subCommand.Compare(T(TLIST)))
@@ -269,38 +268,38 @@ private function DBPointerPair TryLoadingDB(Text databaseLink)
     return result;
 }
 
-protected function CreateDatabase(APlayer callerPlayer, Text databaseName)
+protected function CreateDatabase(EPlayer callerPlayer, Text databaseName)
 {
     if (callerPlayer == none) {
         return;
     }
     if (_.db.ExistsLocal(databaseName))
     {
-        callerPlayer.Console().WriteLine(T(TDB_ALREADY_EXISTS));
+        callerPlayer.BorrowConsole().WriteLine(T(TDB_ALREADY_EXISTS));
         return;
     }
     if (_.db.NewLocal(databaseName) != none) {
-        callerPlayer.Console().WriteLine(T(TDB_CREATED));
+        callerPlayer.BorrowConsole().WriteLine(T(TDB_CREATED));
     }
     else {
-        callerPlayer.Console().WriteLine(T(TDB_CANNOT_BE_CREATED));
+        callerPlayer.BorrowConsole().WriteLine(T(TDB_CANNOT_BE_CREATED));
     }
 }
 
-protected function DeleteDatabase(APlayer callerPlayer, Text databaseName)
+protected function DeleteDatabase(EPlayer callerPlayer, Text databaseName)
 {
     if (callerPlayer == none) {
         return;
     }
     if (_.db.DeleteLocal(databaseName)) {
-        callerPlayer.Console().WriteLine(T(TDA_DELETED));
+        callerPlayer.BorrowConsole().WriteLine(T(TDA_DELETED));
     }
     else {
-        callerPlayer.Console().WriteLine(T(TDB_DOESNT_EXIST));
+        callerPlayer.BorrowConsole().WriteLine(T(TDB_DOESNT_EXIST));
     }
 }
 
-protected function ListDatabases(APlayer callerPlayer)
+protected function ListDatabases(EPlayer callerPlayer)
 {
     local int           i;
     local array<Text>   availableDatabases;
@@ -309,7 +308,7 @@ protected function ListDatabases(APlayer callerPlayer)
         return;
     }
     availableDatabases = _.db.ListLocal();
-    console = callerPlayer.Console();
+    console = callerPlayer.BorrowConsole();
     console.Write(T(TAVAILABLE_DATABASES));
     for (i = 0; i < availableDatabases.length; i += 1)
     {
@@ -323,23 +322,23 @@ protected function ListDatabases(APlayer callerPlayer)
 }
 
 protected function OutputStatus(
-    APlayer                 callerPlayer,
+    EPlayer                 callerPlayer,
     Database.DBQueryResult  error)
 {
     if (callerPlayer == none) {
         return;
     }
     if (error == DBR_Success) {
-        callerPlayer.Console().WriteLine(T(TQUERY_COMPLETED));
+        callerPlayer.BorrowConsole().WriteLine(T(TQUERY_COMPLETED));
     }
     if (error == DBR_InvalidPointer) {
-        callerPlayer.Console().WriteLine(T(TQUERY_INVALID_POINTER));
+        callerPlayer.BorrowConsole().WriteLine(T(TQUERY_INVALID_POINTER));
     }
     if (error == DBR_InvalidDatabase) {
-        callerPlayer.Console().WriteLine(T(TQUERY_INVALID_DB));
+        callerPlayer.BorrowConsole().WriteLine(T(TQUERY_INVALID_DB));
     }
     if (error == DBR_InvalidData) {
-        callerPlayer.Console().WriteLine(T(TQUERY_INVALID_DATA));
+        callerPlayer.BorrowConsole().WriteLine(T(TQUERY_INVALID_DATA));
     }
 }
 
@@ -349,15 +348,17 @@ protected function DisplayData(
     Database                source)
 {
     local Text          printedJSON;
-    local APlayer       callerPlayer;
+    local EPlayer       callerPlayer;
     local Collection    dataAsCollection;
     callerPlayer = PopPlayer(source);
     OutputStatus(callerPlayer, result);
     if (callerPlayer != none && result == DBR_Success)
     {
         printedJSON = _.json.PrettyPrint(data);
-        callerPlayer.Console().Write(printedJSON).Flush();
+        callerPlayer.BorrowConsole().Write(printedJSON).Flush();
         _.memory.Free(printedJSON);
+        _.memory.Free(callerPlayer);
+        callerPlayer = none;
     }
     dataAsCollection = Collection(data);
     if (dataAsCollection != none) {
@@ -372,17 +373,19 @@ protected function DisplaySize(
     Database                source)
 {
     local Text      sizeAsText;
-    local APlayer   callerPlayer;
+    local EPlayer   callerPlayer;
     callerPlayer = PopPlayer(source);
     OutputStatus(callerPlayer, result);
     if (callerPlayer != none && result == DBR_Success)
     {
         sizeAsText = _.text.FromInt(size);
-        callerPlayer.Console()
+        callerPlayer.BorrowConsole()
             .Write(T(TOBJECT_SIZE_IS))
             .Write(sizeAsText)
             .Flush();
         _.memory.Free(sizeAsText);
+        _.memory.Free(callerPlayer);
+        callerPlayer = none;
     }
 }
 
@@ -392,7 +395,7 @@ protected function DisplayKeys(
     Database                source)
 {
     local int           i;
-    local APlayer       callerPlayer;
+    local EPlayer       callerPlayer;
     local ConsoleWriter console;
     callerPlayer = PopPlayer(source);
     OutputStatus(callerPlayer, result);
@@ -401,7 +404,7 @@ protected function DisplayKeys(
     }
     if (callerPlayer != none && result == DBR_Success)
     {
-        console = callerPlayer.Console();
+        console = callerPlayer.BorrowConsole();
         console.Write(T(TOBJECT_KEYS_ARE));
         for (i = 0; i < keys.GetLength(); i += 1)
         {
@@ -411,6 +414,8 @@ protected function DisplayKeys(
             console.UseColor(_.color.jPropertyName).Write(keys.GetText(i));
         }
         console.Flush();
+        _.memory.Free(callerPlayer);
+        callerPlayer = none;
     }
     _.memory.Free(keys);
 }
@@ -419,7 +424,10 @@ protected function DisplayResponse(
     Database.DBQueryResult  result,
     Database                source)
 {
-    OutputStatus(PopPlayer(source), result);
+    local EPlayer callerPlayer;
+    callerPlayer = PopPlayer(source);
+    OutputStatus(callerPlayer, result);
+    _.memory.Free(callerPlayer);
 }
 
 defaultproperties

@@ -90,57 +90,51 @@ protected function BuildData(CommandDataBuilder builder)
             @ "disable the trader and not boot players inside it."));
 }
 
-protected function Executed(CommandCall result)
+protected function Executed(CallData result, EPlayer callerPlayer)
 {
-    local Text              subCommand;
-    local AssociativeArray  commandParameters, commandOptions;
-    subCommand          = result.GetSubCommand();
-    commandParameters   = result.GetParameters();
-    commandOptions      = result.GetOptions();
-    if (subCommand.IsEmpty()) {
-        _.kf.trading.SetTradingStatus(commandParameters.GetBool(T(TENABLE)));
+    if (result.subCommandName.IsEmpty()) {
+        _.kf.trading.SetTradingStatus(result.parameters.GetBool(T(TENABLE)));
     }
-    else if (subCommand.Compare(T(TLIST))) {
-        ListTradersFor(result.GetCallerPlayer());
+    else if (result.subCommandName.Compare(T(TLIST))) {
+        ListTradersFor(callerPlayer);
     }
-    else if (subCommand.Compare(T(TTIME), SCASE_INSENSITIVE)) {
-        HandleTraderTime(result);
+    else if (result.subCommandName.Compare(T(TTIME), SCASE_INSENSITIVE)) {
+        HandleTraderTime(result, callerPlayer);
     }
-    else if (subCommand.Compare(T(TOPEN), SCASE_INSENSITIVE)) {
-        SetTradersOpen(true, result);
+    else if (result.subCommandName.Compare(T(TOPEN), SCASE_INSENSITIVE)) {
+        SetTradersOpen(true, result, callerPlayer);
     }
-    else if (subCommand.Compare(T(TCLOSE), SCASE_INSENSITIVE)) {
-        SetTradersOpen(false, result);
+    else if (result.subCommandName.Compare(T(TCLOSE), SCASE_INSENSITIVE)) {
+        SetTradersOpen(false, result, callerPlayer);
     }
-    else if (subCommand.Compare(T(TSELECT), SCASE_INSENSITIVE)) {
-        SelectTrader(result);
+    else if (result.subCommandName.Compare(T(TSELECT), SCASE_INSENSITIVE)) {
+        SelectTrader(result, callerPlayer);
     }
-    else if (subCommand.Compare(T(TBOOT), SCASE_INSENSITIVE)) {
-        BootFromTraders(result);
+    else if (result.subCommandName.Compare(T(TBOOT), SCASE_INSENSITIVE)) {
+        BootFromTraders(result, callerPlayer);
     }
-    else if (subCommand.Compare(T(TENABLE), SCASE_INSENSITIVE)) {
-        SetTradersEnabled(true, result);
+    else if (result.subCommandName.Compare(T(TENABLE), SCASE_INSENSITIVE)) {
+        SetTradersEnabled(true, result, callerPlayer);
     }
-    else if (subCommand.Compare(T(TDISABLE), SCASE_INSENSITIVE)) {
-        SetTradersEnabled(false, result);
+    else if (result.subCommandName.Compare(T(TDISABLE), SCASE_INSENSITIVE)) {
+        SetTradersEnabled(false, result, callerPlayer);
     }
-    else if (subCommand.Compare(T(TAUTO_OPEN), SCASE_INSENSITIVE)) {
-        SetTradersAutoOpen(result);
+    else if (result.subCommandName.Compare(T(TAUTO_OPEN), SCASE_INSENSITIVE)) {
+        SetTradersAutoOpen(result, callerPlayer);
     }
-    subCommand.FreeSelf();
 }
 
-protected function ListTradersFor(APlayer target)
+protected function ListTradersFor(EPlayer target)
 {
     local int               i;
-    local ATrader           closestTrader;
+    local ETrader           closestTrader;
     local ConsoleWriter     console;
-    local array<ATrader>    availableTraders;
+    local array<ETrader>    availableTraders;
     if (target == none) {
         return;
     }
     availableTraders = _.kf.trading.GetTraders();
-    console = target.Console();
+    console = target.BorrowConsole();
     console.Flush()
         .UseColor(_.color.TextEmphasis)
         .Write(T(TLIST_TRADERS))
@@ -148,22 +142,23 @@ protected function ListTradersFor(APlayer target)
     closestTrader = FindClosestTrader(target);
     for (i = 0; i < availableTraders.length; i += 1)
     {
-        WriteTrader(availableTraders[i], availableTraders[i] == closestTrader,
-                    console);
+        WriteTrader(availableTraders[i],
+                    availableTraders[i].SameAs(closestTrader), console);
         if (i != availableTraders.length - 1) {
             console.Write(T(TCOMMA_SPACE));
         }
     }
+    _.memory.Free(closestTrader);
+    _.memory.FreeMany(availableTraders);
     console.Flush();
 }
 
-protected function HandleTraderTime(CommandCall result)
+protected function HandleTraderTime(CallData result, EPlayer callerPlayer)
 {
     local int       countDownValue;
     local Text      parameter;
     local Parser    parser;
-    local APlayer   callerPlayer;
-    parameter = result.GetParameters().GetText(T(TTRADER_TIME));
+    parameter = result.parameters.GetText(T(TTRADER_TIME));
     if (parameter.Compare(T(TPAUSE), SCASE_INSENSITIVE))
     {
         _.kf.trading.SetCountDownPause(true);
@@ -180,10 +175,9 @@ protected function HandleTraderTime(CommandCall result)
     }
     else
     {
-        callerPlayer = result.GetCallerPlayer();
         if (callerPlayer != none)
         {
-            callerPlayer.Console()
+            callerPlayer.BorrowConsole()
                 .UseColor(_.color.TextFailure)
                 .Write(T(TCANNOT_PARSE_PARAM))
                 .WriteLine(parameter)
@@ -194,14 +188,17 @@ protected function HandleTraderTime(CommandCall result)
 
 }
 
-protected function SetTradersOpen(bool doOpen, CommandCall result)
+protected function SetTradersOpen(
+    bool        doOpen,
+    CallData    result,
+    EPlayer     callerPlayer)
 {
     local int               i;
     local bool              needToBootPlayers;
-    local array<ATrader>    selectedTraders;
-    selectedTraders = GetTradersArray(result);
+    local array<ETrader>    selectedTraders;
+    selectedTraders = GetTradersArray(result, callerPlayer);
     needToBootPlayers = !doOpen
-        && !result.GetOptions().HasKey(T(TIGNORE_PLAYERS));
+        && !result.options.HasKey(T(TIGNORE_PLAYERS));
     for (i = 0; i < selectedTraders.length; i += 1)
     {
         selectedTraders[i].SetOpen(doOpen);
@@ -209,23 +206,24 @@ protected function SetTradersOpen(bool doOpen, CommandCall result)
             selectedTraders[i].BootPlayers();
         }
     }
+    _.memory.FreeMany(selectedTraders);
 }
 
-protected function SelectTrader(CommandCall result)
+protected function SelectTrader(CallData result, EPlayer callerPlayer)
 {
     local int               i;
-    local APlayer           callerPlayer;
     local ConsoleWriter     console;
     local Text              selectedTraderName, nextTraderName;
-    local ATrader           previouslySelectedTrader;
-    local array<ATrader>    availableTraders;
-    selectedTraderName          = result.GetParameters().GetText(T(TTRADER));
+    local ETrader           previouslySelectedTrader;
+    local array<ETrader>    availableTraders;
+    selectedTraderName          = result.parameters.GetText(T(TTRADER));
     previouslySelectedTrader    = _.kf.trading.GetSelectedTrader();
     //  Corner case: no new trader
     if (selectedTraderName == none)
     {
         _.kf.trading.SelectTrader(none);
-        HandleTraderSwap(result, none, availableTraders[i]);
+        HandleTraderSwap(result, previouslySelectedTrader, none);
+        _.memory.Free(previouslySelectedTrader);
         return;
     }
     //  Find new trader among available ones
@@ -239,14 +237,15 @@ protected function SelectTrader(CommandCall result)
             HandleTraderSwap(   result, previouslySelectedTrader,
                                 availableTraders[i]);
             nextTraderName.FreeSelf();
+            _.memory.Free(previouslySelectedTrader);
+            _.memory.FreeMany(availableTraders);
             return;
         }
         nextTraderName.FreeSelf();
     }
     //  If we have reached here: given trader name was invalid.
-    callerPlayer = result.GetCallerPlayer();
     if (callerPlayer != none) {
-        console = callerPlayer.Console();
+        console = callerPlayer.BorrowConsole();
     }
     if (console != none)
     {
@@ -254,20 +253,22 @@ protected function SelectTrader(CommandCall result)
             .UseColor(_.color.TextNegative).Write(T(TUNKNOWN_TRADERS))
             .ResetColor().WriteLine(selectedTraderName);
     }
+    _.memory.Free(previouslySelectedTrader);
+    _.memory.FreeMany(availableTraders);
 }
 
 //  Boot players from the old trader iff
-//      1. It's different from the new one (otherwise swapping means nothing);
+//      1. It is different from the new one (otherwise swapping means nothing);
 //      2. Option "ignore-players" was not specified.
 protected function HandleTraderSwap(
-    CommandCall result,
-    ATrader     oldTrader,
-    ATrader     newTrader)
+    CallData    result,
+    ETrader     oldTrader,
+    ETrader     newTrader)
 {
-    if (oldTrader == none)                              return;
-    if (oldTrader == newTrader)                         return;
-    if (result.GetOptions().HasKey(T(TIGNORE_DOORS)))   return;
-    if (result.GetOptions().HasKey(T(TIGNORE_PLAYERS))) return;
+    if (oldTrader == none)                          return;
+    if (oldTrader.SameAs(newTrader))                return;
+    if (result.options.HasKey(T(TIGNORE_DOORS)))    return;
+    if (result.options.HasKey(T(TIGNORE_PLAYERS)))  return;
 
     oldTrader.Close().BootPlayers();
     if (newTrader != none) {
@@ -275,69 +276,75 @@ protected function HandleTraderSwap(
     }
 }
 
-protected function BootFromTraders(CommandCall result)
+protected function BootFromTraders(CallData result, EPlayer callerPlayer)
 {
     local int               i;
-    local array<ATrader>    selectedTraders;
-    selectedTraders = GetTradersArray(result);
+    local array<ETrader>    selectedTraders;
+    selectedTraders = GetTradersArray(result, callerPlayer);
     if (selectedTraders.length <= 0) {
         selectedTraders = _.kf.trading.GetTraders();
     }
     for (i = 0; i < selectedTraders.length; i += 1) {
         selectedTraders[i].BootPlayers();
     }
+    _.memory.FreeMany(selectedTraders);
 }
 
-protected function SetTradersEnabled(bool doEnable, CommandCall result)
+protected function SetTradersEnabled(
+    bool        doEnable,
+    CallData    result,
+    EPlayer     callerPlayer)
 {
     local int               i;
-    local array<ATrader>    selectedTraders;
-    selectedTraders = GetTradersArray(result);
+    local array<ETrader>    selectedTraders;
+    selectedTraders = GetTradersArray(result, callerPlayer);
     for (i = 0; i < selectedTraders.length; i += 1) {
         selectedTraders[i].SetEnabled(doEnable);
     }
+    _.memory.FreeMany(selectedTraders);
 }
 
-protected function SetTradersAutoOpen(CommandCall result)
+protected function SetTradersAutoOpen(CallData result, EPlayer callerPlayer)
 {
     local int               i;
     local bool              doAutoOpen;
-    local array<ATrader>    selectedTraders;
-    doAutoOpen = result.GetParameters().GetBool(T(TAUTO_OPEN_QUESTION));
-    selectedTraders = GetTradersArray(result);
+    local array<ETrader>    selectedTraders;
+    doAutoOpen = result.parameters.GetBool(T(TAUTO_OPEN_QUESTION));
+    selectedTraders = GetTradersArray(result, callerPlayer);
     for (i = 0; i < selectedTraders.length; i += 1) {
         selectedTraders[i].SetAutoOpen(doAutoOpen);
     }
+    _.memory.FreeMany(selectedTraders);
 }
 
 //  Reads traders specified for the command (if any).
 //  Assumes `result != none`.
-protected function array<ATrader> GetTradersArray(CommandCall result)
+protected function array<ETrader> GetTradersArray(
+    CallData            result,
+    EPlayer             callerPlayer)
 {
     local int               i, j;
-    local APLayer           callerPlayer;
     local Text              nextTraderName;
     local DynamicArray      specifiedTrades;
-    local array<ATrader>    resultTraders;
-    local array<ATrader>    availableTraders;
+    local array<ETrader>    resultTraders;
+    local array<ETrader>    availableTraders;
     //  Boundary cases: all traders and no traders at all
     availableTraders = _.kf.trading.GetTraders();
-    if (result.GetOptions().HasKey(T(TALL))) {
+    if (result.options.HasKey(T(TALL))) {
         return availableTraders;
     }
     //  Add closest one, if flag tells us to
-    callerPlayer = result.GetCallerPlayer();
-    if (result.GetOptions().HasKey(T(TCLOSEST)))
+    if (result.options.HasKey(T(TCLOSEST)))
     {
         resultTraders =
             InsertTrader(resultTraders, FindClosestTrader(callerPlayer));
     }
-    specifiedTrades = result.GetParameters().GetDynamicArray(T(TTRADERS));
+    specifiedTrades = result.parameters.GetDynamicArray(T(TTRADERS));
     if (specifiedTrades == none) {
         return resultTraders;
     }
     //  We iterate over `availableTraders` in the outer loop because:
-    //  1. Each `ATrader` from `availableTraders` will be matched only once,
+    //  1. Each `ETrader` from `availableTraders` will be matched only once,
     //      ensuring that result will not contain duplicate instances;
     //  2. `availableTraders.GetName()` creates a new `Text` copy and
     //      `specifiedTrades.GetText()` does not.
@@ -350,6 +357,7 @@ protected function array<ATrader> GetTradersArray(CommandCall result)
             {
                 resultTraders =
                     InsertTrader(resultTraders, availableTraders[i]);
+                availableTraders[i] = none;
                 specifiedTrades.Remove(j, 1);
                 break;
             }
@@ -362,16 +370,17 @@ protected function array<ATrader> GetTradersArray(CommandCall result)
     //  Some of the remaining trader names inside `specifiedTrades` do not
     //  match any actual traders. Report it.
     if (callerPlayer != none && specifiedTrades.GetLength() > 0) {
-        ReportUnknowTraders(specifiedTrades, callerPlayer.Console());
+        ReportUnknowTraders(specifiedTrades, callerPlayer.BorrowConsole());
     }
+    _.memory.FreeMany(availableTraders);
     return resultTraders;
 }
 
 //  Auxiliary method that adds `newTrader` into existing array of traders
 //  if it is still missing.
-protected function array<ATrader> InsertTrader(
-    array<ATrader>  traders,
-    ATrader         newTrader)
+protected function array<ETrader> InsertTrader(
+    /* take */ array<ETrader>   traders,
+    /* take */ ETrader          newTrader)
 {
     local int i;
     if (newTrader == none) {
@@ -379,7 +388,9 @@ protected function array<ATrader> InsertTrader(
     }
     for (i = 0; i < traders.length; i += 1)
     {
-        if (traders[i] == newTrader) {
+        if (traders[i].SameAs(newTrader))
+        {
+            _.memory.Free(newTrader);
             return traders;
         }
     }
@@ -410,12 +421,12 @@ protected function ReportUnknowTraders(
 }
 
 //  Find closest trader to the `target` player
-protected function ATrader FindClosestTrader(APlayer target)
+protected function ETrader FindClosestTrader(EPlayer target)
 {
     local int               i;
     local float             newDistance, bestDistance;
-    local ATrader           bestTrader;
-    local array<ATrader>    availableTraders;
+    local ETrader           bestTrader;
+    local array<ETrader>    availableTraders;
     local Vector            targetLocation;
     if (target == none) {
         return none;
@@ -428,17 +439,20 @@ protected function ATrader FindClosestTrader(APlayer target)
             VSizeSquared(availableTraders[i].GetLocation() - targetLocation);
         if (bestTrader == none || newDistance < bestDistance)
         {
-            bestTrader = availableTraders[i];
             bestDistance = newDistance;
+            _.memory.Free(bestTrader);
+            bestTrader = availableTraders[i];
+            availableTraders[i] = none;
         }
     }
+    _.memory.FreeMany(availableTraders);
     return bestTrader;
 }
 
 //  Writes a trader name along with information on whether it's
 //  disabled / auto-open
 protected function WriteTrader(
-    ATrader         traderToWrite,
+    ETrader         traderToWrite,
     bool            isClosestTrader,
     ConsoleWriter   console)
 {
@@ -462,7 +476,7 @@ protected function WriteTrader(
 }
 
 protected function WriteTraderTags(
-    ATrader         traderToWrite,
+    ETrader         traderToWrite,
     bool            isClosest,
     ConsoleWriter   console)
 {

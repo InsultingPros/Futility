@@ -27,9 +27,12 @@ protected function BuildData(CommandDataBuilder builder)
         .Describe(P("Changes nickname of targeted players to <nick>."));
 }
 
-protected function ExecutedFor(APlayer player, CommandCall result)
+protected function ExecutedFor(
+    EPlayer     player,
+    CallData    result,
+    EPlayer     callerPlayer)
 {
-    player.SetName(result.GetParameters().GetText(P("nick")));
+    player.SetName(result.parameters.GetText(P("nick")));
 }
 
 defaultproperties

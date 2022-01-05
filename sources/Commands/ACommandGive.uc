@@ -39,24 +39,23 @@ protected function BuildData(CommandDataBuilder builder)
         .ParamBoolean(P("keep-items"));
 }
 
-protected function ExecutedFor(APlayer player, CommandCall result)
+protected function ExecutedFor(
+    EPlayer     player,
+    CallData    result,
+    EPlayer     callerPlayer)
 {
     local int               i;
     local bool              doForce;
     local Text              itemTemplate, itemName;
     local array<Text>       addedItems, rejectedItems;
-    local APlayer           callerPlayer;
     local EInventory        inventory;
     local EItemTemplateInfo templateInfo;
-    local AssociativeArray  options;
     local DynamicArray      itemsToAdd;
-    callerPlayer    = result.GetCallerPlayer();
     inventory       = player.GetInventory();
-    itemsToAdd      = result.GetParameters().GetDynamicArray(P("items"));
-    options         = result.GetOptions();
-    doForce         = options.HasKey(P("force"));
-    if (options.HasKey(P("clear"))) {
-        inventory.RemoveAll(options.GetBoolBy(P("/clear/keep-items")));
+    itemsToAdd      = result.parameters.GetDynamicArray(P("items"));
+    doForce         = result.options.HasKey(P("force"));
+    if (result.options.HasKey(P("clear"))) {
+        inventory.RemoveAll(result.options.GetBoolBy(P("/clear/keep-items")));
     }
     for (i = 0; i < itemsToAdd.GetLength(); i += 1)
     {
@@ -118,8 +117,8 @@ protected function bool GiveItemTo(
 }
 
 protected function ReportResultsToCaller(
-    APlayer     caller,
-    APlayer     target,
+    EPlayer     caller,
+    EPlayer     target,
     array<Text> addedItems,
     array<Text> rejectedItems)
 {
@@ -129,7 +128,7 @@ protected function ReportResultsToCaller(
     if (addedItems.length <= 0 && rejectedItems.length <= 0) {
         return;
     }
-    console = caller.Console();
+    console = caller.BorrowConsole();
     targetName = target.GetName();
     console.Write(F("{$TextEmphasis Giving} weapons to "))
         .Write(targetName).Write(P(": "));
@@ -175,8 +174,8 @@ protected function ReportResultsToCaller(
 }
 
 protected function AnnounceGivingItems(
-    APlayer     caller,
-    Aplayer     target,
+    EPlayer     caller,
+    EPlayer     target,
     array<Text> addedItems)
 {
     local int               i;
