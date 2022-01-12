@@ -20,8 +20,8 @@
  * You should have received a copy of the GNU General Public License
  * along with Acedia.  If not, see <https://www.gnu.org/licenses/>.
  */
-class FutileNickames_Feature extends Feature
-    dependson(FutileNickames);
+class FutilityNicknames_Feature extends Feature
+    dependson(FutilityNicknames);
 
 /**
  *  This feature's functionality is rather simple, but we will still break up
@@ -67,7 +67,7 @@ class FutileNickames_Feature extends Feature
 //          for nicknames, also reducing a sequence of whitespaces inside
 //          nickname to a single space, e.g. "my   nick" becomes "my nick".
 //  Default is `NSA_DoNothing`, same as on vanilla.
-var private /*config*/ FutileNickames.NicknameSpacesAction spacesAction;
+var private /*config*/ FutilityNicknames.NicknameSpacesAction spacesAction;
 
 //  How to treat colored nicknames.
 //      * `NCP_ForbidColor` - completely strips down any color from nicknames;
@@ -78,7 +78,7 @@ var private /*config*/ FutileNickames.NicknameSpacesAction spacesAction;
 //      * `NCP_AllowAnyColor` - allows nickname to be colored in any way player
 //          wants.
 //  Default is `NCP_ForbidColor`, same as on vanilla.
-var private /*config*/ FutileNickames.NicknameColorPermissions colorPermissions;
+var private /*config*/ FutilityNicknames.NicknameColorPermissions colorPermissions;
 
 //      Set this to `true` if you wish to replace all whitespace characters with
 //  underscores and `false` to leave them as is.
@@ -86,12 +86,32 @@ var private /*config*/ FutileNickames.NicknameColorPermissions colorPermissions;
 //  Futility replaces all whitespace characters (including tabulations,
 //  non-breaking spaces, etc.) instead of only ' '.
 var private /*config*/ bool         replaceSpacesWithUnderscores;
+//  Set this to `true` to remove single 'quotation marks' and `false` to
+//  leave them. Default is `false`, same as on vanilla.
+var private /*config*/ bool         removeSingleQuotationMarks;
+//  Set this to `true` to remove dobule 'quotation marks' and `false` to
+//  leave them. Default is `true`, same as on vanilla.
+var private /*config*/ bool         removeDoubleQuotationMarks;
 
 //  Max allowed nickname length. Negative values disable any length limits.
 //
-//  NOTE: `0` resets all nicknames to be empty and, if `correctEmptyNicknames`
-//  is set to `true`, they will be replaced with one of the fallback nicknames
-//  (see `correctEmptyNicknames` and `fallbackNickname`).
+//  NOTE #1: `0` resets all nicknames to be empty and,
+//      if `correctEmptyNicknames` is set to `true`, they will be replaced with
+//      one of the fallback nicknames
+//      (see `correctEmptyNicknames` and `fallbackNickname`).
+//  NOTE #2: Because of how color swapping in vanilla Killing Floor works,
+//      every color swap makes text count as being about 4 characters longer.
+//      So if one uses too many colors in the nickname, for drawing functions
+//      it will appear to be longer than it actually is and it *will* mess up
+//      UI. Unless you are using custom HUD it is recommended to keep this value
+//      at default `20` and forbid colored nicknames
+//      (by setting `colorPermissions=NCP_ForbidColor`). Or to allow only one
+//      color (by setting `colorPermissions=NCP_ForceSingleColor` or
+//      `colorPermissions=NCP_ForceTeamColor`) and reducing `maxNicknameLength`
+//      to `16` (20 characters - 4 for color swap).
+//          If you want to increase the limit above that, you can also do your
+//      own research by testing nicknames of various length on
+//      screen resolutions you care about.
 var private /*config*/ int          maxNicknameLength;
 
 //  Should we replace empty player nicknames with a random fallback nickname
@@ -103,11 +123,12 @@ var private /*config*/ array<Text>  fallbackNickname;
 
 //  Guaranteed order of applying changes (only chosen ones) is as following:
 //      1. Trim/simplify spaces;
-//      2. Enforce max limit of nickname's length;
-//      3. Replace empty nickname with fallback nickname (no further changes
+//      2. Remove single and double quotation marks;
+//      3. Enforce max limit of nickname's length;
+//      4. Replace empty nickname with fallback nickname (no further changes
 //          will be applied to fallback nickname in that case);
-//      4. Enforce color limitation;
-//      5. Replace remaining whitespaces with underscores.
+//      5. Enforce color limitation;
+//      6. Replace remaining whitespaces with underscores.
 //
 //  NOTE #1: as follows from the instruction described above, no changes will
 //      ever be applied to fallback nicknames (unless player's nickname
@@ -150,12 +171,14 @@ protected function OnDisabled()
 protected function SwapConfig(FeatureConfig config)
 {
     local bool              configRequiresCensoring;
-    local FutileNickames    newConfig;
-    newConfig = FutileNickames(config);
+    local FutilityNicknames newConfig;
+    newConfig = FutilityNicknames(config);
     if (newConfig == none) {
         return;
     }
     replaceSpacesWithUnderscores    = newConfig.replaceSpacesWithUnderscores;
+    removeSingleQuotationMarks      = newConfig.removeSingleQuotationMarks;
+    removeDoubleQuotationMarks      = newConfig.removeDoubleQuotationMarks;
     correctEmptyNicknames           = newConfig.correctEmptyNicknames;
     spacesAction                    = newConfig.spacesAction;
     colorPermissions                = newConfig.colorPermissions;
@@ -201,7 +224,7 @@ private function Text PickNextFallback()
     return result;
 }
 
-protected function SwapFallbackNicknames(FutileNickames newConfig)
+protected function SwapFallbackNicknames(FutilityNicknames newConfig)
 {
     local int i;
     _.memory.FreeMany(fallbackNickname);
@@ -219,6 +242,8 @@ protected function SwapFallbackNicknames(FutileNickames newConfig)
 private function bool IsAnyCensoringEnabled()
 {
     return (    replaceSpacesWithUnderscores
+            ||  removeSingleQuotationMarks
+            ||  removeDoubleQuotationMarks
             ||  correctEmptyNicknames
             ||  maxNicknameLength >= 0
             ||  colorPermissions != NCP_AllowAnyColor
@@ -280,6 +305,12 @@ private function CensorNickname(MutableText nickname, EPlayer affectedPlayer)
     if (spacesAction != NSA_DoNothing) {
         nickname.Simplify(spacesAction == NSA_Simplify);
     }
+    if (removeSingleQuotationMarks) {
+        nickname.Replace(P("'"), P(""));
+    }
+    if (removeDoubleQuotationMarks) {
+        nickname.Replace(P("\""), P(""));
+    }
     if (maxNicknameLength >= 0) {
         nickname.Remove(maxNicknameLength);
     }
@@ -335,6 +366,6 @@ private function ReplaceSpaces(MutableText nickname)
 
 defaultproperties
 {
-    configClass = class'FutileNickames'
+    configClass = class'FutilityNicknames'
     CODEPOINT_UNDERSCORE = 95 // '_'
 }

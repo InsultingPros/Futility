@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Acedia.  If not, see <https://www.gnu.org/licenses/>.
  */
-class FutileNickames extends FeatureConfig
+class FutilityNicknames extends FeatureConfig
     perobjectconfig
     config(FutilityNicknames);
 
@@ -39,6 +39,8 @@ enum NicknameColorPermissions
 var public config NicknameSpacesAction      spacesAction;
 var public config NicknameColorPermissions  colorPermissions;
 var public config bool                      replaceSpacesWithUnderscores;
+var public config bool                      removeSingleQuotationMarks;
+var public config bool                      removeDoubleQuotationMarks;
 var public config bool                      correctEmptyNicknames;
 var public config int                       maxNicknameLength;
 var public config array<string>             fallbackNickname;
@@ -55,6 +57,10 @@ protected function AssociativeArray ToData()
                     _.text.FromString(string(colorPermissions)), true);
     data.SetBool(   P("replaceSpacesWithUnderscores"),
                     replaceSpacesWithUnderscores, true);
+    data.SetBool(   P("removeSingleQuotationMarks"),
+                    removeSingleQuotationMarks, true);
+    data.SetBool(   P("removeDoubleQuotationMarks"),
+                    removeDoubleQuotationMarks, true);
     data.SetBool(P("correctEmptyNicknames"), correctEmptyNicknames, true);
     data.SetInt(P("maxNicknameLength"), maxNicknameLength, true);
     fallbackNicknamesData = __().collections.EmptyDynamicArray();
@@ -80,6 +86,10 @@ protected function FromData(AssociativeArray source)
         source.GetText(P("colorPermissions")));
     replaceSpacesWithUnderscores =
         source.GetBool(P("replaceSpacesWithUnderscores"), true);
+    removeSingleQuotationMarks =
+        source.GetBool(P("removeSingleQuotationMarks"), true);
+    removeDoubleQuotationMarks =
+        source.GetBool(P("removeDoubleQuotationMarks"), true);
     correctEmptyNicknames = source.GetBool(P("correctEmptyNicknames"), true);
     maxNicknameLength = source.GetInt(P("correctEmptyNicknames"), 20);
     fallbackNicknamesData = DynamicArray(source.GetItem(P("fallbackNickname")));
@@ -141,6 +151,8 @@ protected function DefaultIt()
     spacesAction        = NSA_DoNothing;
     colorPermissions    = NCP_ForbidColor;
     replaceSpacesWithUnderscores    = true;
+    removeSingleQuotationMarks      = false;
+    removeDoubleQuotationMarks      = true;
     correctEmptyNicknames           = true;
     maxNicknameLength               = 20;
     if (fallbackNickname.length > 0) {
@@ -164,6 +176,8 @@ defaultproperties
     spacesAction                    = NSA_DoNothing
     colorPermissions                = NCP_ForbidColor
     replaceSpacesWithUnderscores    = true
+    removeSingleQuotationMarks      = false
+    removeDoubleQuotationMarks      = true
     correctEmptyNicknames           = true
     maxNicknameLength               = 20
     fallbackNickname(0) = "Fresh Meat"

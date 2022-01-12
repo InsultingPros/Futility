@@ -23,5 +23,5 @@
 defaultproperties
 {
     features(0) = class'Futility_Feature'
-    features(1) = class'FutileNickames_Feature'
+    features(1) = class'FutilityNicknames_Feature'
 }
