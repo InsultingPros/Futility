@@ -1,6 +1,6 @@
 /**
  *      Manifest is meant to describe contents of the Acedia's package.
- *      Copyright 2021 Anton Tarasenko
+ *      Copyright 2021 - 2022 Anton Tarasenko
  *------------------------------------------------------------------------------
  * This file is part of Acedia.
  *
@@ -24,4 +24,5 @@ defaultproperties
 {
     features(0) = class'Futility_Feature'
     features(1) = class'FutilityNicknames_Feature'
+    features(2) = class'FutilityChat_Feature'
 }
