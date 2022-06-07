@@ -1,6 +1,6 @@
 /**
  *  Command for managing trader time and traders.
- *      Copyright 2021 Anton Tarasenko
+ *      Copyright 2021-2022 Anton Tarasenko
  *------------------------------------------------------------------------------
  * This file is part of Acedia.
  *
@@ -26,7 +26,8 @@ var protected const int TLIST_TRADERS, TCOMMA_SPACE, TSELECTED_FLAG;
 var protected const int TPARENTHESIS_OPEN, TPARENTHESIS_CLOSE;
 var protected const int TSELECT, TIGNORE_DOORS, TBOOT, TTRADER_TIME, TTIME;
 var protected const int TIGNORE_PLAYERS, TPAUSE, TUNPAUSE, TCANNOT_PARSE_PARAM;
-var protected const int TCLOSEST, TSPACE;
+var protected const int TCLOSEST, TSPACE, TSELECTED_TRADER, TSELECTED_NO_TRADER;
+var protected const int TSELECT_NO_CHANGE;
 
 protected function BuildData(CommandDataBuilder builder)
 {
@@ -89,7 +90,7 @@ protected function BuildData(CommandDataBuilder builder)
             @ "booted out at the end of trading time. Also it is impossible to"
             @ "disable the trader and not boot players inside it."));
 }
-
+//TODO: trader select -c does not work properly
 protected function Executed(CallData result, EPlayer callerPlayer)
 {
     if (result.subCommandName.IsEmpty()) {
@@ -99,7 +100,7 @@ protected function Executed(CallData result, EPlayer callerPlayer)
         ListTradersFor(callerPlayer);
     }
     else if (result.subCommandName.Compare(T(TTIME), SCASE_INSENSITIVE)) {
-        HandleTraderTime(result, callerPlayer);
+        HandleTraderTime(result);
     }
     else if (result.subCommandName.Compare(T(TOPEN), SCASE_INSENSITIVE)) {
         SetTradersOpen(true, result, callerPlayer);
@@ -128,32 +129,28 @@ protected function ListTradersFor(EPlayer target)
 {
     local int               i;
     local ETrader           closestTrader;
-    local ConsoleWriter     console;
     local array<ETrader>    availableTraders;
     if (target == none) {
         return;
     }
     availableTraders = _.kf.trading.GetTraders();
-    console = target.BorrowConsole();
-    console.Flush()
-        .UseColor(_.color.TextEmphasis)
-        .Write(T(TLIST_TRADERS))
-        .ResetColor();
+    callerConsole.Flush()
+        .UseColorOnce(_.color.TextEmphasis).Write(T(TLIST_TRADERS));
     closestTrader = FindClosestTrader(target);
     for (i = 0; i < availableTraders.length; i += 1)
     {
         WriteTrader(availableTraders[i],
-                    availableTraders[i].SameAs(closestTrader), console);
+                    availableTraders[i].SameAs(closestTrader));
         if (i != availableTraders.length - 1) {
-            console.Write(T(TCOMMA_SPACE));
+            callerConsole.Write(T(TCOMMA_SPACE));
         }
     }
     _.memory.Free(closestTrader);
     _.memory.FreeMany(availableTraders);
-    console.Flush();
+    callerConsole.Flush();
 }
 
-protected function HandleTraderTime(CallData result, EPlayer callerPlayer)
+protected function HandleTraderTime(CallData result)
 {
     local int       countDownValue;
     local Text      parameter;
@@ -175,14 +172,11 @@ protected function HandleTraderTime(CallData result, EPlayer callerPlayer)
     }
     else
     {
-        if (callerPlayer != none)
-        {
-            callerPlayer.BorrowConsole()
-                .UseColor(_.color.TextFailure)
-                .Write(T(TCANNOT_PARSE_PARAM))
-                .WriteLine(parameter)
-                .ResetColor();
-        }
+        callerConsole
+            .UseColor(_.color.TextFailure)
+            .Write(T(TCANNOT_PARSE_PARAM))
+            .WriteLine(parameter)
+            .ResetColor();
     }
     parser.FreeSelf();
 
@@ -209,68 +203,82 @@ protected function SetTradersOpen(
     _.memory.FreeMany(selectedTraders);
 }
 
+protected function bool AreTradersSame(ETrader trader1, ETrader trader2)
+{
+    if (trader1 == none && trader2 == none) return true;
+    if (trader1 == none && trader2 != none) return false;
+    if (trader1 != none && trader2 == none) return false;
+
+    return trader1.SameAs(trader2);
+}
+
 protected function SelectTrader(CallData result, EPlayer callerPlayer)
 {
-    local int               i;
-    local ConsoleWriter     console;
-    local Text              selectedTraderName, nextTraderName;
-    local ETrader           previouslySelectedTrader;
-    local array<ETrader>    availableTraders;
-    selectedTraderName          = result.parameters.GetText(T(TTRADER));
-    previouslySelectedTrader    = _.kf.trading.GetSelectedTrader();
-    //  Corner case: no new trader
-    if (selectedTraderName == none)
+    local Text      specifiedTraderName, newlySelectedTraderName;
+    local ETrader   previouslySelectedTrader, newlySelectedTrader;
+    previouslySelectedTrader = _.kf.trading.GetSelectedTrader();
+    specifiedTraderName = result.parameters.GetText(T(TTRADER));
+    //  Try to get trader user want to select:
+    //  first try closes (if option is specified), next trader's name
+    if (callerPlayer != none && result.options.HasKey(T(TCLOSEST))) {
+        newlySelectedTrader = FindClosestTrader(callerPlayer);
+    }
+    if (newlySelectedTrader == none) {
+        newlySelectedTrader = _.kf.trading.GetTrader(specifiedTraderName);
+    }
+    //  If nothing is found, but name was specified - there is an error
+    if (newlySelectedTrader == none && specifiedTraderName != none)
     {
-        _.kf.trading.SelectTrader(none);
-        HandleTraderSwap(result, previouslySelectedTrader, none);
+        callerConsole.Flush()
+            .UseColorOnce(_.color.TextFailure).Write(T(TUNKNOWN_TRADERS))
+            .WriteLine(specifiedTraderName);
         _.memory.Free(previouslySelectedTrader);
         return;
     }
-    //  Find new trader among available ones
-    availableTraders = _.kf.trading.GetTraders();
-    for (i = 0; i < availableTraders.length; i += 1)
-    {
-        nextTraderName = availableTraders[i].GetName();
-        if (selectedTraderName.Compare(nextTraderName))
-        {
-            availableTraders[i].Select();
-            HandleTraderSwap(   result, previouslySelectedTrader,
-                                availableTraders[i]);
-            nextTraderName.FreeSelf();
-            _.memory.Free(previouslySelectedTrader);
-            _.memory.FreeMany(availableTraders);
-            return;
-        }
-        nextTraderName.FreeSelf();
+    //  Select proepr trader
+    HandleTraderSwap(result, previouslySelectedTrader, newlySelectedTrader);
+    _.kf.trading.SelectTrader(newlySelectedTrader);
+    //  Report change
+    if (AreTradersSame(previouslySelectedTrader, newlySelectedTrader)) {
+        callerConsole.WriteLine(T(TSELECT_NO_CHANGE));
     }
-    //  If we have reached here: given trader name was invalid.
-    if (callerPlayer != none) {
-        console = callerPlayer.BorrowConsole();
+    else if (newlySelectedTrader == none) {
+        callerConsole.WriteLine(T(TSELECTED_NO_TRADER));
     }
-    if (console != none)
+    else
     {
-        console.Flush()
-            .UseColor(_.color.TextNegative).Write(T(TUNKNOWN_TRADERS))
-            .ResetColor().WriteLine(selectedTraderName);
+        newlySelectedTraderName = newlySelectedTrader.GetName();
+        callerConsole.Flush().Write(T(TSELECTED_TRADER))
+            .WriteLine(newlySelectedTraderName);
+        _.memory.Free(newlySelectedTraderName);
     }
     _.memory.Free(previouslySelectedTrader);
-    _.memory.FreeMany(availableTraders);
+    _.memory.Free(newlySelectedTrader);
 }
 
 //  Boot players from the old trader iff
 //      1. It is different from the new one (otherwise swapping means nothing);
 //      2. Option "ignore-players" was not specified.
+//      3. New trader was actually closed.
 protected function HandleTraderSwap(
     CallData    result,
     ETrader     oldTrader,
     ETrader     newTrader)
 {
+    local bool closeOldTrader;
     if (oldTrader == none)                          return;
     if (oldTrader.SameAs(newTrader))                return;
-    if (result.options.HasKey(T(TIGNORE_DOORS)))    return;
-    if (result.options.HasKey(T(TIGNORE_PLAYERS)))  return;
 
-    oldTrader.Close().BootPlayers();
+    closeOldTrader = newTrader == none || !newTrader.IsOpen();
+    if (closeOldTrader)
+    {
+        if (!result.options.HasKey(T(TIGNORE_DOORS))) {
+            oldTrader.Close();
+        }
+        if (!result.options.HasKey(T(TIGNORE_PLAYERS))) {
+            oldTrader.BootPlayers();
+        }
+    }
     if (newTrader != none) {
         newTrader.Open();
     }
@@ -370,7 +378,7 @@ protected function array<ETrader> GetTradersArray(
     //  Some of the remaining trader names inside `specifiedTrades` do not
     //  match any actual traders. Report it.
     if (callerPlayer != none && specifiedTrades.GetLength() > 0) {
-        ReportUnknowTraders(specifiedTrades, callerPlayer.BorrowConsole());
+        ReportUnknowTraders(specifiedTrades);
     }
     _.memory.FreeMany(availableTraders);
     return resultTraders;
@@ -398,26 +406,22 @@ protected function array<ETrader> InsertTrader(
     return traders;
 }
 
-protected function ReportUnknowTraders(
-    DynamicArray    specifiedTrades,
-    ConsoleWriter   console)
+protected function ReportUnknowTraders(DynamicArray specifiedTrades)
 {
     local int i;
-    if (console == none)            return;
-    if (specifiedTrades == none)    return;
-
-    console.Flush()
-        .UseColor(_.color.TextNegative)
-        .Write(T(TUNKNOWN_TRADERS))
-        .ResetColor();
+    if (specifiedTrades == none) {
+        return;
+    }
+    callerConsole.Flush()
+        .UseColorOnce(_.color.TextNegative).Write(T(TUNKNOWN_TRADERS));
     for (i = 0; i < specifiedTrades.GetLength(); i += 1)
     {
-        console.Write(specifiedTrades.GetText(i));
+        callerConsole.Write(specifiedTrades.GetText(i));
         if (i != specifiedTrades.GetLength() - 1) {
-            console.Write(T(TCOMMA_SPACE));
+            callerConsole.Write(T(TCOMMA_SPACE));
         }
     }
-    console.Flush();
+    callerConsole.Flush();
 }
 
 //  Find closest trader to the `target` player
@@ -453,32 +457,28 @@ protected function ETrader FindClosestTrader(EPlayer target)
 //  disabled / auto-open
 protected function WriteTrader(
     ETrader         traderToWrite,
-    bool            isClosestTrader,
-    ConsoleWriter   console)
+    bool            isClosestTrader)
 {
     local Text traderName;
-    if (traderToWrite == none)  return;
-    if (console == none)        return;
-
-    console.Write(T(TQUOTE));
+    if (traderToWrite == none) {
+        return;
+    }
+    callerConsole.Write(T(TQUOTE));
     if (traderToWrite.IsOpen()) {
-        console.UseColor(_.color.TextPositive);
+        callerConsole.UseColor(_.color.TextPositive);
     }
     else {
-        console.UseColor(_.color.TextNegative);
+        callerConsole.UseColor(_.color.TextNegative);
     }
     traderName = traderToWrite.GetName();
-    console.Write(traderName)
+    callerConsole.Write(traderName)
         .ResetColor()
         .Write(T(TQUOTE));
     traderName.FreeSelf();
-    WriteTraderTags(traderToWrite, isClosestTrader, console);
+    WriteTraderTags(traderToWrite, isClosestTrader);
 }
 
-protected function WriteTraderTags(
-    ETrader         traderToWrite,
-    bool            isClosest,
-    ConsoleWriter   console)
+protected function WriteTraderTags(ETrader traderToWrite, bool isClosest)
 {
     local bool hasTagsInFront;
     local bool isAutoOpen, isSelected;
@@ -487,7 +487,7 @@ protected function WriteTraderTags(
     }
     if (!traderToWrite.IsEnabled())
     {
-        console.Write(T(TDISABLED_FLAG));
+        callerConsole.Write(T(TDISABLED_FLAG));
         return;
     }
     isAutoOpen = traderToWrite.IsAutoOpen();
@@ -495,28 +495,28 @@ protected function WriteTraderTags(
     if (!isAutoOpen && !isSelected && !isClosest) {
         return;
     }
-    console.Write(T(TSPACE)).Write(T(TPARENTHESIS_OPEN));
+    callerConsole.Write(T(TSPACE)).Write(T(TPARENTHESIS_OPEN));
     if (isClosest)
     {
-        console.Write(T(TCLOSEST));
+        callerConsole.Write(T(TCLOSEST));
         hasTagsInFront = true;
     }
     if (isAutoOpen)
     {
         if (hasTagsInFront) {
-            console.Write(T(TCOMMA_SPACE));
+            callerConsole.Write(T(TCOMMA_SPACE));
         }
-        console.Write(T(TAUTO_OPEN_FLAG));
+        callerConsole.Write(T(TAUTO_OPEN_FLAG));
         hasTagsInFront = true;
     }
     if (isSelected)
     {
         if (hasTagsInFront) {
-            console.Write(T(TCOMMA_SPACE));
+            callerConsole.Write(T(TCOMMA_SPACE));
         }
-        console.Write(T(TSELECTED_FLAG));
+        callerConsole.Write(T(TSELECTED_FLAG));
     }
-    console.Write(T(TPARENTHESIS_CLOSE));
+    callerConsole.Write(T(TPARENTHESIS_CLOSE));
 }
 
 defaultproperties
@@ -581,4 +581,10 @@ defaultproperties
     stringConstants(28) = "closest"
     TSPACE              = 29
     stringConstants(29) = " "
+    TSELECTED_TRADER    = 30
+    stringConstants(30) = "{$TextPositive Selected trader} "
+    TSELECTED_NO_TRADER = 31
+    stringConstants(31) = "All traders were {$TextPositive deselected}"
+    TSELECT_NO_CHANGE   = 32
+    stringConstants(32) = "No changes were made as a result of {$TextEmphasis select} command"
 }
