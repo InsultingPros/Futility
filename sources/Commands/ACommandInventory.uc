@@ -130,7 +130,7 @@ protected function SubCommandAdd(
     DynamicArray    itemsArray,
     DynamicArray    specifiedLists)
 {
-    local int           i, j;
+    local int           i;
     local int           itemsAmount;
     local array<Text>   itemsFromLists;
     if (tool == none) {
@@ -147,7 +147,7 @@ protected function SubCommandAdd(
     //  Add items from specified lists
     itemsFromLists = LoadAllItemsLists(specifiedLists);
     for (i = 0; i < itemsFromLists.length; i += 1) {
-        tool.AddItem(itemsFromLists[j], flagForce, flagAmmo);
+        tool.AddItem(itemsFromLists[i], flagForce, flagAmmo);
     }
     _.memory.FreeMany(itemsFromLists);
 }
@@ -157,7 +157,7 @@ protected function SubCommandRemove(
     DynamicArray    itemsArray,
     DynamicArray    specifiedLists)
 {
-    local int           i, j;
+    local int           i;
     local int           itemsAmount;
     local array<Text>   itemsFromLists;
     if (tool == none) {
@@ -184,7 +184,7 @@ protected function SubCommandRemove(
     //  Remove items from specified lists
     itemsFromLists = LoadAllItemsLists(specifiedLists);
     for (i = 0; i < itemsFromLists.length; i += 1) {
-        tool.RemoveItem(itemsFromLists[j], flagKeep, flagForce, flagAll);
+        tool.RemoveItem(itemsFromLists[i], flagKeep, flagForce, flagAll);
     }
     _.memory.FreeMany(itemsFromLists);
 }
