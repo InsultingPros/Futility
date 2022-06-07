@@ -37,6 +37,7 @@ protected function OnEnabled()
     commandsFeature.RegisterCommand(class'ACommandNick');
     commandsFeature.RegisterCommand(class'ACommandTrader');
     commandsFeature.RegisterCommand(class'ACommandDB');
+    commandsFeature.RegisterCommand(class'ACommandInventory');
 }
 
 protected function OnDisabled()
@@ -51,6 +52,7 @@ protected function OnDisabled()
         commandsFeature.RemoveCommand(class'ACommandNick');
         commandsFeature.RemoveCommand(class'ACommandTrader');
         commandsFeature.RemoveCommand(class'ACommandDB');
+        commandsFeature.RemoveCommand(class'ACommandInventory');
     }
 }
 
