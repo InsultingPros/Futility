@@ -25,6 +25,13 @@
  */
 class InventoryTool extends AcediaObject;
 
+enum InventoryReportTarget
+{
+    IRT_Caller,
+    IRT_Target,
+    IRT_Others
+};
+
 /**
  *  Every instance of this class is created for a particular player and that
  *  player cannot be changed. It allows:
@@ -62,7 +69,7 @@ var const int TITEMS_ADDITION_FAILED_MESSAGE, TITEMS_REMOVAL_FAILED_MESSAGE;
 var const int TRESOLVED_INTO, TTILDE_QUOTE, TFAULTY_INVENTORY_IMPLEMENTATION;
 var const int TITEM_MISSING, TITEM_NOT_REMOVABLE, TUNKNOWN, TVISIBLE;
 var const int TDISPLAYING_INVENTORY, THEADER_COLON, TDOT_SPACE, TCOLON_SPACE;
-var const int TCOMMA_SPACE, TSPACE, TOUT_OF, THIDDEN_ITEMS, TDOLLAR;
+var const int TCOMMA_SPACE, TSPACE, TOUT_OF, THIDDEN_ITEMS, TDOLLAR, TYOU;
 
 protected function Constructor()
 {
@@ -256,8 +263,14 @@ public function AddItem(Text userProvidedName, bool doForce, bool doFillAmmo)
  *      (or, at least, attempted to be preserved) and not simply destroyed.
  *  @param  doForce             Set to `true` if we must try to remove an item
  *      even if it normally cannot be removed.
+ *  @param  doRemoveAll         Set to `true` to remove all instances of given
+ *      template and `false` to only remove one.
  */
-public function RemoveItem(Text userProvidedName, bool doKeep, bool doForce)
+public function RemoveItem(
+    Text userProvidedName,
+    bool doKeep,
+    bool doForce,
+    bool doRemoveAll)
 {
     local bool          itemWasMissing;
     local Text          realItemName, itemTemplate;
@@ -287,7 +300,8 @@ public function RemoveItem(Text userProvidedName, bool doKeep, bool doForce)
         //  Need to remember the name before removing the item
         realItemName = storedItem.GetName();
     }
-    if (targetInventory.RemoveTemplate(itemTemplate, doKeep, doForce))
+    if (targetInventory
+        .RemoveTemplate(itemTemplate, doKeep, doForce, doRemoveAll))
     {
         resolvedLine = MakeResolvedIntoLine(userProvidedName, itemTemplate);
         itemsRemoved.Item(realItemName);
@@ -460,9 +474,9 @@ public function RemoveEquippedItems(
  *      changes.
  */
 public final function ReportChanges(
-    EPlayer         blamedPlayer,
-    ConsoleWriter   writer,
-    bool            publicReport)
+    EPlayer                 blamedPlayer,
+    ConsoleWriter           writer,
+    InventoryReportTarget   reportTarget)
 {
     local Text blamedName, targetName;
     if (TargetPlayerIsInvalid()) {
@@ -472,12 +486,17 @@ public final function ReportChanges(
     if (blamedPlayer != none) {
         blamedName = blamedPlayer.GetName();
     }
-    if (publicReport)
+    if (reportTarget == IRT_Others)
     {
         itemsAdded.Report(writer, blamedName, targetName);
         itemsRemoved.Report(writer, blamedName, targetName);
     }
-    else
+    else if (reportTarget == IRT_Target)
+    {
+        itemsAdded.Report(writer, blamedName, T(TYOU));
+        itemsRemoved.Report(writer, blamedName, T(TYOU));
+    }
+    else if (reportTarget == IRT_Caller)
     {
         itemsAddedPrivate.Report(writer, blamedName, targetName);
         itemsRemovedPrivate.Report(writer, blamedName, targetName);
@@ -654,4 +673,6 @@ defaultproperties
     stringConstants(20) = "{$TextSubHeader Hidden items:}"
     TDOLLAR                             = 21
     stringConstants(21) = "$"
+    TYOU                                = 22
+    stringConstants(22) = "you"
 }

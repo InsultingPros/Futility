@@ -20,8 +20,17 @@
  */
 class ACommandInventory extends Command;
 
+//      Load user-specified options into the boolean flags during'
+//  `ExecutedFor()` and use them in auxiliary methods.
+//      This is might be a questionable way of doing things, but it allows to
+//  avoid passing flags in copious amounts to auxiliary methods and
+//  does not overcomplicate logic
+var private bool flagAll, flagForce, flagAmmo, flagKeep;
+var private bool flagEquip, flagHidden, flagGroups;
+
 var protected const int TINVENTORY, TADD, TREMOVE, TITEMS, TEQUIP, TALL, TKEEP;
-var protected const int THIDDEN, TFORCE, TAMMO, TALL_WEAPONS;
+var protected const int THIDDEN, TFORCE, TAMMO, TLIST, TLISTS_NAMES, TSET;
+var protected const int TLISTS_SKIPPED;
 
 protected function BuildData(CommandDataBuilder builder)
 {
@@ -43,14 +52,22 @@ protected function BuildData(CommandDataBuilder builder)
         .Describe(P("This command removes items (based on listed templates)"
             @ "from the targeted player's inventory."
             @ "Instead of templates item aliases can be specified."));
+    builder.SubCommand(T(TSET))
+        .OptionalParams()
+        .ParamTextList(T(TITEMS))
+        .Describe(P("This command acts like combination of two commands -"
+            @ "first removing all items from the player's current inventory and"
+            @ "then adding specified items. first clears inventory"
+            @ "(based on specified options) and then "));
     builder.Option(T(TEQUIP))
         .Describe(F("Affect items currently equipped by the targeted player."
             @ "Releveant for a {$TextEmphasis remove} subcommand."));
-    builder.Option(T(TALL))
-        .Describe(F("This flag tells editing commands to affect all items."
-            @ "When adding items it means \"all available weapons in the game\""
-            @ "and when removing it means \"all weapons in"
-            @ "the player's inventory\"."));
+    builder.Option(T(TLIST))
+        .Describe(P("Include weapons from specified group into the list."))
+        .ParamTextList(T(TLISTS_NAMES));
+    builder.Option(T(TAMMO))
+        .Describe(P("When adding weapons - signals that their"
+            @ "ammo / charge / whatever has to be filled after addition."));
     builder.Option(T(TKEEP))
         .Describe(F("Removing items by default means simply destroying them."
             @ "This flag makes command to try and keep them in some form."
@@ -66,9 +83,12 @@ protected function BuildData(CommandDataBuilder builder)
         .Describe(P("Sometimes adding and removing items is impossible due to"
             @ "the limitations imposed by the game. This option allows to"
             @ "ignore some of those limitation."));
-    builder.Option(T(TAMMO), P("A"))
-        .Describe(P("When adding weapons - signals that their"
-            @ "ammo / charge / whatever has to be filled after addition."));
+    builder.Option(T(TALL), P("A"))
+        .Describe(F("This flag is used when removing items. If user has"
+            @ "specified any weapon templates - it means"
+            @ "\"remove all items with these tempaltes from inventory\","
+            @ "but if user has not specified any templated it simply means"
+            @ "\"remove all items from the inventory\"."));
 }
 
 protected function ExecutedFor(
@@ -76,121 +96,174 @@ protected function ExecutedFor(
     CallData    result,
     EPlayer     callerPlayer)
 {
-    local ConsoleWriter publicWriter;
     local InventoryTool tool;
+    local DynamicArray  itemsArray, specifiedLists;
+    LoadUserFlags(result.options);
     tool = class'InventoryTool'.static.CreateFor(player);
     if (tool == none) {
         return;
     }
-    if (result.subCommandName.IsEmpty())
-    {
-        tool.ReportInventory(   callerPlayer.BorrowConsole(),
-                                result.options.HasKey(T(THIDDEN)));
+    itemsArray = result.parameters.GetDynamicArray(T(TITEMS));
+    specifiedLists = result.options.GetDynamicArrayBy(P("/list/lists names"));
+    if (result.subCommandName.IsEmpty()) {
+        tool.ReportInventory(callerConsole, flagHidden);
     }
-    else if (result.subCommandName.Compare(T(TADD)))
-    {
-        SubCommandAdd(  tool, result.parameters.GetDynamicArray(T(TITEMS)),
-                        result.options.HasKey(T(TALL)),
-                        result.options.HasKey(T(TFORCE)),
-                        result.options.HasKey(T(TAMMO)));
+    else if (result.subCommandName.Compare(T(TADD))) {
+        SubCommandAdd(tool, itemsArray, specifiedLists);
     }
-    else if (result.subCommandName.Compare(T(TREMOVE)))
-    {
-        SubCommandRemove(   tool,
-                            result.parameters.GetDynamicArray(T(TITEMS)),
-                            result.options.HasKey(T(TALL)),
-                            result.options.HasKey(T(TFORCE)),
-                            result.options.HasKey(T(TKEEP)),
-                            result.options.HasKey(T(TEQUIP)),
-                            result.options.HasKey(T(THIDDEN)));
+    else if (result.subCommandName.Compare(T(TREMOVE))) {
+        SubCommandRemove(tool, itemsArray, specifiedLists);
     }
-    tool.ReportChanges(callerPlayer, player.BorrowConsole(), false);
-    publicWriter = _.console.ForAll().ButPlayer(callerPlayer);
-    tool.ReportChanges(callerPlayer, publicWriter, true);
+    else if (result.subCommandName.Compare(T(TSET)))
+    {
+        tool.RemoveAllItems(flagKeep, flagForce, flagHidden);
+        SubCommandAdd(tool, itemsArray, specifiedLists);
+    }
+    tool.ReportChanges(callerPlayer, callerConsole, IRT_Caller);
+    tool.ReportChanges(callerPlayer, targetConsole, IRT_Target);
+    tool.ReportChanges(callerPlayer, othersConsole, IRT_Others);
     _.memory.Free(tool);
-    _.memory.Free(publicWriter);
 }
 
 protected function SubCommandAdd(
     InventoryTool   tool,
-    DynamicArray    templateList,
-    bool            flagAll,
-    bool            doForce,
-    bool            doFillAmmo)
+    DynamicArray    itemsArray,
+    DynamicArray    specifiedLists)
 {
-    if (flagAll) {
-        AddAllItems(tool, doForce, doFillAmmo);
+    local int           i, j;
+    local int           itemsAmount;
+    local array<Text>   itemsFromLists;
+    if (tool == none) {
+        return;
     }
-    else {
-        AddGivenTemplates(tool, templateList, doForce, doFillAmmo);
+    if (itemsArray != none) {
+        itemsAmount = itemsArray.GetLength();
     }
+    //  Add items user listed manually
+    //  Use `itemsAmount` because `itemsArray` can be `none`
+    for (i = 0; i < itemsAmount; i += 1) {
+        tool.AddItem(itemsArray.GetText(i), flagForce, flagAmmo);
+    }
+    //  Add items from specified lists
+    itemsFromLists = LoadAllItemsLists(specifiedLists);
+    for (i = 0; i < itemsFromLists.length; i += 1) {
+        tool.AddItem(itemsFromLists[j], flagForce, flagAmmo);
+    }
+    _.memory.FreeMany(itemsFromLists);
 }
 
 protected function SubCommandRemove(
     InventoryTool   tool,
-    DynamicArray    templateList,
-    bool            flagAll,
-    bool            doForce,
-    bool            doKeep,
-    bool            flagEquip,
-    bool            flagHidden)
+    DynamicArray    itemsArray,
+    DynamicArray    specifiedLists)
 {
-    if (flagAll)
-    {
-        tool.RemoveAllItems(doKeep, doForce, flagHidden);
-        return;
-    }
-    if (flagEquip) {
-        tool.RemoveEquippedItems(doKeep, doForce, flagHidden);
-    }
-    RemoveGivenTemplates(tool, templateList, doForce, doKeep);
-}
-
-protected function AddAllItems(
-    InventoryTool   tool,
-    bool            doForce,
-    bool            doFillAmmo)
-{
-    local int           i;
-    local array<Text>   allTempaltes;
+    local int           i, j;
+    local int           itemsAmount;
+    local array<Text>   itemsFromLists;
     if (tool == none) {
         return;
     }
-    allTempaltes = _.kf.templates.GetItemList(T(TALL_WEAPONS));
-    for (i = 0; i < allTempaltes.length; i += 1) {
-        tool.AddItem(allTempaltes[i], doForce, doFillAmmo);
+    if (itemsArray != none) {
+        itemsAmount = itemsArray.GetLength();
     }
-    _.memory.FreeMany(allTempaltes);
+    //  Remove due to "--all" option
+    if (flagAll && itemsAmount <= 0)
+    {
+        tool.RemoveAllItems(flagKeep, flagForce, flagHidden);
+        return;
+    }
+    //  Remove due to "--equip" option
+    if (flagEquip) {
+        tool.RemoveEquippedItems(flagKeep, flagForce, flagHidden);
+    }
+    //  Remove items user listed manually
+    //  Use `itemsAmount` because `itemsArray` can be `none`
+    for (i = 0; i < itemsAmount; i += 1) {
+        tool.RemoveItem(itemsArray.GetText(i), flagKeep, flagForce, flagAll);
+    }
+    //  Remove items from specified lists
+    itemsFromLists = LoadAllItemsLists(specifiedLists);
+    for (i = 0; i < itemsFromLists.length; i += 1) {
+        tool.RemoveItem(itemsFromLists[j], flagKeep, flagForce, flagAll);
+    }
+    _.memory.FreeMany(itemsFromLists);
 }
 
-protected function AddGivenTemplates(
-    InventoryTool   tool,
-    DynamicArray    templateList,
-    bool            doForce,
-    bool            doFillAmmo)
+protected function LoadUserFlags(AssociativeArray options)
 {
-    local int i;
-    if (tool == none)           return;
-    if (templateList == none)   return;
-
-    for (i = 0; i < templateList.GetLength(); i += 1) {
-        tool.AddItem(templateList.GetText(i), doForce, doFillAmmo);
+    if (options == none)
+    {
+        flagAll     = false;
+        flagForce   = false;
+        flagAmmo    = false;
+        flagKeep    = false;
+        flagEquip   = false;
+        flagHidden  = false;
+        flagGroups  = false;
+        return;
     }
+    flagAll     = options.HasKey(T(TALL));
+    flagForce   = options.HasKey(T(TFORCE));
+    flagAmmo    = options.HasKey(T(TAMMO));
+    flagKeep    = options.HasKey(T(TKEEP));
+    flagEquip   = options.HasKey(T(TEQUIP));
+    flagHidden  = options.HasKey(T(THIDDEN));
+    flagGroups  = options.HasKey(T(TLIST));
 }
 
-protected function RemoveGivenTemplates(
-    InventoryTool   tool,
-    DynamicArray    templateList,
-    bool            doForce,
-    bool            doKeep)
+protected function array<Text> LoadAllItemsLists(DynamicArray specifiedLists)
 {
-    local int i;
-    if (tool == none)           return;
-    if (templateList == none)   return;
-
-    for (i = 0; i < templateList.GetLength(); i += 1) {
-        tool.RemoveItem(templateList.GetText(i), doKeep, doForce);
+    local int           i, j;
+    local array<Text>   result;
+    local array<Text>   nextItemBatch;
+    local array<Text>   availableLists;
+    local ReportTool    badLists;
+    if (specifiedLists == none) {
+        return result;
     }
+    badLists = ReportTool(_.memory.Allocate(class'ReportTool'));
+    badLists.Initialize(T(TLISTS_SKIPPED));
+    availableLists = _.kf.templates.GetAvailableLists();
+    for (i = 0; i < specifiedLists.Getlength(); i += 1)
+    {
+        nextItemBatch =
+            LoadItemsList(specifiedLists.GetText(i), availableLists, badLists);
+        for (j = 0; j < nextItemBatch.length; j += 1) {
+            result[result.length] = nextItemBatch[j];
+        }
+    }
+    badLists.Report(callerConsole);
+    _.memory.Free(badLists);
+    _.memory.FreeMany(availableLists);
+    return result;
+}
+
+protected function array<Text> LoadItemsList(
+    Text        listName,
+    array<Text> availableLists,
+    ReportTool  badLists)
+{
+    local int           i;
+    local array<Text>   emptyArray;
+    if (listName == none) {
+        return emptyArray;
+    }
+    //  Try exact matching first
+    for (i = 0; i < availableLists.length; i += 1)
+    {
+        if (availableLists[i].Compare(listName, SCASE_INSENSITIVE)) {
+            return _.kf.templates.GetItemList(availableLists[i]);
+        }
+    }
+    //  Prefix matching otherwise
+    for (i = 0; i < availableLists.length; i += 1)
+    {
+        if (availableLists[i].StartsWith(listName, SCASE_INSENSITIVE)) {
+            return _.kf.templates.GetItemList(availableLists[i]);
+        }
+    }
+    badLists.Item(listName);
+    return emptyArray;
 }
 
 defaultproperties
@@ -215,6 +288,12 @@ defaultproperties
     stringConstants(8)  = "force"
     TAMMO           = 9
     stringConstants(9)  = "ammo"
-    TALL_WEAPONS    = 10
-    stringConstants(10) = "all weapons"
+    TLIST           = 10
+    stringConstants(10) = "list"
+    TLISTS_NAMES    = 11
+    stringConstants(11) = "lists names"
+    TSET            = 12
+    stringConstants(12) = "set"
+    TLISTS_SKIPPED  = 13
+    stringConstants(13) = "Following lists could not have been found and will be {$TextFailure skipped}:"
 }

@@ -134,6 +134,7 @@ public final function ReportTool Detail(Text detail)
 
 /**
  *  Outputs report assembled thus far into the provided `ConsoleWriter`.
+ *  Reports will be made only if at least one items was added (see `Item()`).
  *
  *  @param  writer  `ConsoleWriter` to output report into.
  *  @param  cause   Player that caused the change this report is about.
