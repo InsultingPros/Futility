@@ -77,7 +77,7 @@ private function ChatColorSetting ColorSettingFromText(
 }
 
 protected function DefaultIt()
-{;
+{
     colorSetting        = CCS_DoNothing;
     configuredColor     = _.color.RGB(255, 255, 255);
     teamColorModifier   = 0.6;
