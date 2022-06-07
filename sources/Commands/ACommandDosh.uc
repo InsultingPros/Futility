@@ -19,7 +19,9 @@
  */
 class ACommandDosh extends Command;
 
-var protected const int TGOTTEN, TLOST, TDOSH;
+var protected const int TGOTTEN, TLOST, TYOU_GAVE, TYOU_TAKEN, TOTHER_GAVE;
+var protected const int TOTHER_TAKEN, TDOSH_FROM, TDOSH_TO, TYOURSELF, TDOSH;
+var protected const int TTHEMSELVES;
 
 protected function BuildData(CommandDataBuilder builder)
 {
@@ -31,9 +33,6 @@ protected function BuildData(CommandDataBuilder builder)
     builder.SubCommand(P("set"))
         .ParamInteger(P("amount"))
         .Describe(P("Sets player's money to a specified <amount>."));
-    builder.Option(P("silent"))
-        .Describe(P("If specified - players won't receive a notification about"
-            @ "obtaining/losing dosh."));
     builder.Option(P("min"))
         .ParamInteger(P("minValue"))
         .Describe(F("Players will retain at least this amount of dosh after"
@@ -72,40 +71,97 @@ protected function ExecutedFor(
     newAmount = Clamp(newAmount, minValue, maxValue);
     //  Announce dosh change, if necessary
     if (!result.options.HasKey(P("silent"))) {
-        AnnounceDoshChange(player.BorrowConsole(), oldAmount, newAmount);
+        AnnounceDoshChange(player, callerPlayer, oldAmount, newAmount);
     }
     player.SetDosh(newAmount);
 }
 
 protected function AnnounceDoshChange(
-    ConsoleWriter   console,
-    int             oldAmount,
-    int             newAmount)
+    EPlayer player,
+    EPlayer callerPlayer,
+    int     oldAmount,
+    int     newAmount)
 {
+    local bool affectingSelf;
     local Text amountDeltaAsText;
+    local Text targetName, yourTargetName, callerName;
+    callerName = callerPlayer.GetName();
+    affectingSelf = callerPlayer.SameAs(player);
+    if (affectingSelf)
+    {
+        yourTargetName  = T(TYOURSELF).Copy();
+        targetName      = player.GetName();
+    }
+    else
+    {
+        yourTargetName  = T(TTHEMSELVES).Copy();
+        targetName      = player.GetName();
+    }
     if (newAmount > oldAmount)
     {
         amountDeltaAsText = _.text.FromInt(newAmount - oldAmount);
-        console.Write(T(TGOTTEN))
+        if (!affectingSelf)
+        {
+            targetConsole.Write(T(TGOTTEN))
+                .Write(amountDeltaAsText)
+                .WriteLine(T(TDOSH));
+        }
+        callerConsole.Write(T(TYOU_GAVE))
             .Write(amountDeltaAsText)
-            .WriteLine(T(TDOSH));
+            .Write(T(TDOSH_TO))
+            .WriteLine(yourTargetName);
+        othersConsole.Write(callerName)
+            .Write(T(TOTHER_GAVE))
+            .Write(amountDeltaAsText)
+            .Write(T(TDOSH_TO))
+            .WriteLine(targetName);
     }
     if (newAmount < oldAmount)
     {
         amountDeltaAsText = _.text.FromInt(oldAmount - newAmount);
-        console.Write(T(TLOST))
+        if (!affectingSelf)
+        {
+            targetConsole.Write(T(TLOST))
+                .Write(amountDeltaAsText)
+                .WriteLine(T(TDOSH));
+        }
+        callerConsole.Write(T(TYOU_TAKEN))
             .Write(amountDeltaAsText)
-            .WriteLine(T(TDOSH));
+            .Write(T(TDOSH_FROM))
+            .WriteLine(yourTargetName);
+        othersConsole.Write(callerName)
+            .Write(T(TOTHER_TAKEN))
+            .Write(amountDeltaAsText)
+            .Write(T(TDOSH_FROM))
+            .WriteLine(targetName);
     }
     _.memory.Free(amountDeltaAsText);
+    _.memory.Free(targetname);
+    _.memory.Free(callerName);
 }
 
 defaultproperties
 {
-    TGOTTEN = 0
+    TGOTTEN         = 0
     stringConstants(0)  = "You've {$TextPositive gotten} "
-    TLOST   = 1
+    TLOST           = 1
     stringConstants(1)  = "You've {$TextNegative lost} "
-    TDOSH   = 2
-    stringConstants(2)  = " dosh!"
+    TYOU_GAVE       = 2
+    stringConstants(2)  = "You {$TextPositive gave} "
+    TYOU_TAKEN      = 3
+    stringConstants(3)  = "You {$TextNegative took} "
+    TOTHER_GAVE     = 4
+    stringConstants(4)  = " {$TextPositive gave} "
+    TOTHER_TAKEN    = 5
+    stringConstants(5)  = " {$TextNegative taken} "
+    TDOSH           = 6
+    stringConstants(6)  = " dosh"
+    TDOSH_FROM      = 7
+    stringConstants(7)  = " dosh from "
+    TDOSH_TO        = 8
+    stringConstants(8)  = " dosh to "
+    TYOURSELF       = 9
+    stringConstants(9)  = "yourself"
+    TTHEMSELVES     = 10
+    stringConstants(10) = "themselves"
 }

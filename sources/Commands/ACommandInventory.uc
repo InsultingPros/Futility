@@ -119,8 +119,10 @@ protected function ExecutedFor(
         tool.RemoveAllItems(flagKeep, flagForce, flagHidden);
         SubCommandAdd(tool, itemsArray, specifiedLists);
     }
+    if (!callerPlayer.SameAs(player)) {
+        tool.ReportChanges(callerPlayer, targetConsole, IRT_Target);
+    }
     tool.ReportChanges(callerPlayer, callerConsole, IRT_Caller);
-    tool.ReportChanges(callerPlayer, targetConsole, IRT_Target);
     tool.ReportChanges(callerPlayer, othersConsole, IRT_Others);
     _.memory.Free(tool);
 }

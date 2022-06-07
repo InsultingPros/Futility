@@ -33,7 +33,6 @@ protected function OnEnabled()
         return;
     }
     commandsFeature.RegisterCommand(class'ACommandDosh');
-    commandsFeature.RegisterCommand(class'ACommandGive');
     commandsFeature.RegisterCommand(class'ACommandNick');
     commandsFeature.RegisterCommand(class'ACommandTrader');
     commandsFeature.RegisterCommand(class'ACommandDB');
@@ -48,7 +47,6 @@ protected function OnDisabled()
     if (commandsFeature != none)
     {
         commandsFeature.RemoveCommand(class'ACommandDosh');
-        commandsFeature.RemoveCommand(class'ACommandGive');
         commandsFeature.RemoveCommand(class'ACommandNick');
         commandsFeature.RemoveCommand(class'ACommandTrader');
         commandsFeature.RemoveCommand(class'ACommandDB');

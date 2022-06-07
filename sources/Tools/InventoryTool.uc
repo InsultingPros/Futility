@@ -70,6 +70,7 @@ var const int TRESOLVED_INTO, TTILDE_QUOTE, TFAULTY_INVENTORY_IMPLEMENTATION;
 var const int TITEM_MISSING, TITEM_NOT_REMOVABLE, TUNKNOWN, TVISIBLE;
 var const int TDISPLAYING_INVENTORY, THEADER_COLON, TDOT_SPACE, TCOLON_SPACE;
 var const int TCOMMA_SPACE, TSPACE, TOUT_OF, THIDDEN_ITEMS, TDOLLAR, TYOU;
+var const int TYOURSELF, TTHEMSELVES;
 
 protected function Constructor()
 {
@@ -479,12 +480,21 @@ public final function ReportChanges(
     InventoryReportTarget   reportTarget)
 {
     local Text blamedName, targetName;
-    if (TargetPlayerIsInvalid()) {
-        return;
+    if (TargetPlayerIsInvalid())    return;
+    if (blamedPlayer == none)       return;
+
+    blamedName = blamedPlayer.GetName();
+    if (!targetPlayer.SameAs(blamedPlayer)) {
+        targetName = targetPlayer.GetName();
     }
-    targetName = targetPlayer.GetName();
-    if (blamedPlayer != none) {
-        blamedName = blamedPlayer.GetName();
+    else
+    {
+        if (reportTarget == IRT_Caller) {
+            targetName = T(TYOURSELF).Copy();
+        }
+        else {
+            targetName = T(TTHEMSELVES).Copy();
+        }
     }
     if (reportTarget == IRT_Others)
     {
@@ -498,6 +508,11 @@ public final function ReportChanges(
     }
     else if (reportTarget == IRT_Caller)
     {
+        if (targetPlayer.SameAs(blamedPlayer))
+        {
+            _.memory.Free(targetName);
+            targetName = T(TYOURSELF).Copy();
+        }
         itemsAddedPrivate.Report(writer, blamedName, targetName);
         itemsRemovedPrivate.Report(writer, blamedName, targetName);
         itemsAdditionFailed.Report(writer, blamedName, targetName);
@@ -675,4 +690,8 @@ defaultproperties
     stringConstants(21) = "$"
     TYOU                                = 22
     stringConstants(22) = "you"
+    TYOURSELF                           = 23
+    stringConstants(23) = "yourself"
+    TTHEMSELVES                         = 24
+    stringConstants(24) = "themselves"
 }

@@ -1,6 +1,6 @@
 /**
  *  Command for working with databases.
- *      Copyright 2021 Anton Tarasenko
+ *      Copyright 2021-2022 Anton Tarasenko
  *------------------------------------------------------------------------------
  * This file is part of Acedia.
  *
@@ -188,7 +188,7 @@ protected function Executed(CallData result, EPlayer callerPlayer)
     pair = TryLoadingDB(result.parameters.GetText(T(TDATABASE_LINK)));
     if (pair.database == none)
     {
-        callerPlayer.BorrowConsole().WriteLine(T(TBAD_DBLINK));
+        callerConsole.WriteLine(T(TBAD_DBLINK));
         return;
     }
     //  Remember the last player we are making a query to and make that query
@@ -230,7 +230,7 @@ private function bool TryAPICallCommands(
 {
     if (subCommand.IsEmpty())
     {
-        callerPlayer.BorrowConsole().WriteLine(T(TNO_DEFAULT_COMMAND));
+        callerConsole.WriteLine(T(TNO_DEFAULT_COMMAND));
         return true;
     }
     else if (subCommand.Compare(T(TLIST)))
@@ -275,14 +275,14 @@ protected function CreateDatabase(EPlayer callerPlayer, Text databaseName)
     }
     if (_.db.ExistsLocal(databaseName))
     {
-        callerPlayer.BorrowConsole().WriteLine(T(TDB_ALREADY_EXISTS));
+        callerConsole.WriteLine(T(TDB_ALREADY_EXISTS));
         return;
     }
     if (_.db.NewLocal(databaseName) != none) {
-        callerPlayer.BorrowConsole().WriteLine(T(TDB_CREATED));
+        callerConsole.WriteLine(T(TDB_CREATED));
     }
     else {
-        callerPlayer.BorrowConsole().WriteLine(T(TDB_CANNOT_BE_CREATED));
+        callerConsole.WriteLine(T(TDB_CANNOT_BE_CREATED));
     }
 }
 
@@ -292,10 +292,10 @@ protected function DeleteDatabase(EPlayer callerPlayer, Text databaseName)
         return;
     }
     if (_.db.DeleteLocal(databaseName)) {
-        callerPlayer.BorrowConsole().WriteLine(T(TDA_DELETED));
+        callerConsole.WriteLine(T(TDA_DELETED));
     }
     else {
-        callerPlayer.BorrowConsole().WriteLine(T(TDB_DOESNT_EXIST));
+        callerConsole.WriteLine(T(TDB_DOESNT_EXIST));
     }
 }
 
@@ -308,7 +308,7 @@ protected function ListDatabases(EPlayer callerPlayer)
         return;
     }
     availableDatabases = _.db.ListLocal();
-    console = callerPlayer.BorrowConsole();
+    console = callerConsole;
     console.Write(T(TAVAILABLE_DATABASES));
     for (i = 0; i < availableDatabases.length; i += 1)
     {
@@ -329,16 +329,16 @@ protected function OutputStatus(
         return;
     }
     if (error == DBR_Success) {
-        callerPlayer.BorrowConsole().WriteLine(T(TQUERY_COMPLETED));
+        callerConsole.WriteLine(T(TQUERY_COMPLETED));
     }
     if (error == DBR_InvalidPointer) {
-        callerPlayer.BorrowConsole().WriteLine(T(TQUERY_INVALID_POINTER));
+        callerConsole.WriteLine(T(TQUERY_INVALID_POINTER));
     }
     if (error == DBR_InvalidDatabase) {
-        callerPlayer.BorrowConsole().WriteLine(T(TQUERY_INVALID_DB));
+        callerConsole.WriteLine(T(TQUERY_INVALID_DB));
     }
     if (error == DBR_InvalidData) {
-        callerPlayer.BorrowConsole().WriteLine(T(TQUERY_INVALID_DATA));
+        callerConsole.WriteLine(T(TQUERY_INVALID_DATA));
     }
 }
 
@@ -355,7 +355,7 @@ protected function DisplayData(
     if (callerPlayer != none && result == DBR_Success)
     {
         printedJSON = _.json.PrettyPrint(data);
-        callerPlayer.BorrowConsole().Write(printedJSON).Flush();
+        callerConsole.Write(printedJSON).Flush();
         _.memory.Free(printedJSON);
         _.memory.Free(callerPlayer);
         callerPlayer = none;
@@ -379,7 +379,7 @@ protected function DisplaySize(
     if (callerPlayer != none && result == DBR_Success)
     {
         sizeAsText = _.text.FromInt(size);
-        callerPlayer.BorrowConsole()
+        callerConsole
             .Write(T(TOBJECT_SIZE_IS))
             .Write(sizeAsText)
             .Flush();
@@ -404,7 +404,7 @@ protected function DisplayKeys(
     }
     if (callerPlayer != none && result == DBR_Success)
     {
-        console = callerPlayer.BorrowConsole();
+        console = callerConsole;
         console.Write(T(TOBJECT_KEYS_ARE));
         for (i = 0; i < keys.GetLength(); i += 1)
         {
