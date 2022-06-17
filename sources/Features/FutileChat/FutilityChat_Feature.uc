@@ -93,9 +93,7 @@ private function bool ReformatChatMessage(
     MutableText message,
     bool        teamMessage)
 {
-    local int               i;
-    local MutableText       messageCopy;
-    local Text.Character    nextCharacter;
+    local Text              messageCopy;
     local Text.Formatting   defaultFormatting;
     if (sender == none)                 return true;
     if (message == none)                return true;
@@ -111,28 +109,17 @@ private function bool ReformatChatMessage(
         defaultFormatting.color = configuredColor;
     }
     if (message.StartsWith(P("|"))) {
-        messageCopy = message.MutableCopy(1);
+        message.Remove(0, 1);
     }
-    else if (   colorSetting == CCS_TeamColorForced
-            ||  colorSetting == CCS_ConfigColorForced)
+    else if (   colorSetting != CCS_TeamColorForced
+            &&  colorSetting != CCS_ConfigColorForced)
     {
-        messageCopy = message.MutableCopy();
+        messageCopy = message.Copy();
+        class'FormattingStringParser'.static
+            .ParseFormatted(messageCopy, message.Clear());
+        _.memory.Free(messageCopy);
     }
-    else
-    {
-        messageCopy = _.text.Empty();
-        messageCopy.AppendFormatted(message);
-    }
-    message.Clear();
-    for (i = 0; i < messageCopy.GetLength(); i += 1)
-    {
-        nextCharacter = messageCopy.GetCharacter(i);
-        if (!nextCharacter.formatting.isColored) {
-            nextCharacter.formatting = defaultFormatting;
-        }
-        message.AppendCharacter(nextCharacter);
-    }
-    _.memory.Free(messageCopy);
+    message.ChangeDefaultFormatting(defaultFormatting);
     return true;
 }
 
