@@ -82,7 +82,7 @@ protected function ExecutedFor(
 
 protected function bool TryChangeDefaultColor(
     MutableText newName,
-    Text        specifiedColor)
+    BaseText    specifiedColor)
 {
     local Color defaultColor;
     if (newName == none)        return false;
@@ -101,10 +101,10 @@ protected function bool TryChangeDefaultColor(
 }
 
 protected function AnnounceNicknameChange(
-    Text    callerName,
-    Text    oldName,
-    Text    newName,
-    bool    selfChange)
+    BaseText    callerName,
+    BaseText    oldName,
+    BaseText    newName,
+    bool        selfChange)
 {
     if (selfChange)
     {

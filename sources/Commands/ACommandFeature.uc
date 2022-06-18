@@ -54,9 +54,9 @@ protected function Executed(CallData result, EPlayer callerPlayer)
 }
 
 protected function TryEnableFeature(
-    EPlayer callerPlayer,
-    Text    featureName,
-    Text    chosenConfig)
+    EPlayer     callerPlayer,
+    BaseText    featureName,
+    BaseText    chosenConfig)
 {
     local Text                  oldConfig, newConfig;
     local class<Feature>        featureClass;
@@ -115,7 +115,7 @@ protected function EnableFeature(
     EPlayer                 callerPlayer,
     class<Feature>          featureClass,
     class<FeatureConfig>    configClass,
-    Text                    chosenConfig,
+    BaseText                chosenConfig,
     bool                    autoConfig)
 {
     local bool      wasEnabled;
@@ -196,7 +196,7 @@ protected function DisableFeature(EPlayer callerPlayer, Text featureName)
     _.memory.Free(playerName);
 }
 
-protected function class<Feature> LoadFeatureClass(Text featureName)
+protected function class<Feature> LoadFeatureClass(BaseText featureName)
 {
     local Text              featureClassName;
     local class<Feature>    featureClass;

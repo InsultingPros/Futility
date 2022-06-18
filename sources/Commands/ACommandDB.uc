@@ -224,7 +224,7 @@ protected function Executed(CallData result, EPlayer callerPlayer)
 
 //  Simple API calls
 private function bool TryAPICallCommands(
-    Text                subCommand,
+    BaseText            subCommand,
     EPlayer             callerPlayer,
     AssociativeArray    commandParameters)
 {
@@ -254,7 +254,7 @@ private function bool TryAPICallCommands(
 }
 
 //  json pointer as `Text` -> `DBPointerPair` representation converter method
-private function DBPointerPair TryLoadingDB(Text databaseLink)
+private function DBPointerPair TryLoadingDB(BaseText databaseLink)
 {
     local DBPointerPair result;
     if (databaseLink == none) {
@@ -354,7 +354,7 @@ protected function DisplayData(
     OutputStatus(callerPlayer, result);
     if (callerPlayer != none && result == DBR_Success)
     {
-        printedJSON = _.json.PrettyPrint(data);
+        printedJSON = _.json.PrettyPrint(data).IntoText();
         callerConsole.Write(printedJSON).Flush();
         _.memory.Free(printedJSON);
         _.memory.Free(callerPlayer);

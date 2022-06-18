@@ -108,7 +108,7 @@ protected function FromData(AssociativeArray source)
     }
 }
 
-private function NicknameSpacesAction SpaceActionFromText(Text action)
+private function NicknameSpacesAction SpaceActionFromText(BaseText action)
 {
     if (action == none) {
         return NSA_DoNothing;
@@ -126,7 +126,7 @@ private function NicknameSpacesAction SpaceActionFromText(Text action)
 }
 
 private function NicknameColorPermissions ColorPermissionsFromText(
-    Text permissions)
+    BaseText permissions)
 {
     if (permissions == none) {
         return NCP_ForbidColor;

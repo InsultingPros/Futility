@@ -80,7 +80,7 @@ protected function Finalizer()
  *      the caller `ReportTool`.
  *      Method does nothing (initialization fails) iff `template == none`.
  */
-public final function Initialize(Text template)
+public final function Initialize(BaseText template)
 {
     if (template == none) {
         return;
@@ -98,7 +98,7 @@ public final function Initialize(Text template)
  *      to the previously added item).
  *  @return Reference to the caller `ReportTool` to allow for method chaining.
  */
-public final function ReportTool Item(Text item)
+public final function ReportTool Item(BaseText item)
 {
     local ReportItem newItem;
     if (headerTemplate == none) return self;
@@ -119,7 +119,7 @@ public final function ReportTool Item(Text item)
  *      Does nothing if `detail == none` or no items were added thuis far.
  *  @return Reference to the caller `ReportTool` to allow for method chaining.
  */
-public final function ReportTool Detail(Text detail)
+public final function ReportTool Detail(BaseText detail)
 {
     local array<Text> detailToReport;
     if (headerTemplate == none)     return self;
@@ -146,9 +146,9 @@ public final function ReportTool Detail(Text detail)
  *  @return Reference to the caller `ReportTool` to allow for method chaining.
  */
 public final function ReportTool Report(
-    ConsoleWriter writer,
-    optional Text cause,
-    optional Text target)
+    ConsoleWriter       writer,
+    optional BaseText   cause,
+    optional BaseText   target)
 {
     local int           i, j;
     local MutableText   intro;

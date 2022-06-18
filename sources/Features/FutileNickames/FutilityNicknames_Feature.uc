@@ -253,7 +253,7 @@ private function bool IsAnyCensoringEnabled()
 //  For nickname changes mid-game.
 private function HandleNicknameChange(
     EPlayer     affectedPlayer,
-    Text        oldName,
+    BaseText    oldName,
     MutableText newName)
 {
     CensorNickname(newName, affectedPlayer);
@@ -297,8 +297,8 @@ private function CensorCurrentPlayersNicknames()
 
 private function CensorNickname(MutableText nickname, EPlayer affectedPlayer)
 {
-    local Text              fallback;
-    local Text.Formatting   newFormatting;
+    local Text                  fallback;
+    local BaseText.Formatting   newFormatting;
     if (nickname == none)       return;
     if (affectedPlayer == none) return;
 
@@ -343,9 +343,9 @@ private function CensorNickname(MutableText nickname, EPlayer affectedPlayer)
 //  Asusmes `nickname != none`.
 private function ReplaceSpaces(MutableText nickname)
 {
-    local int               i;
-    local MutableText       nicknameCopy;
-    local Text.Character    nextCharacter, underscoreCharacter;
+    local int                   i;
+    local MutableText           nicknameCopy;
+    local BaseText.Character    nextCharacter, underscoreCharacter;
     nicknameCopy = nickname.MutableCopy();
     nickname.Clear();
     underscoreCharacter =

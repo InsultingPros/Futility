@@ -157,8 +157,8 @@ public final function Reset()
 //      In case `resolvedWhat == intoWhat` just returns copy of
 //  original `resolvedWhat`
 private function MutableText MakeResolvedIntoLine(
-    Text resolvedWhat,
-    Text intoWhat)
+    BaseText resolvedWhat,
+    BaseText intoWhat)
 {
     if (resolvedWhat == none) {
         return none;
@@ -201,7 +201,10 @@ private function TryFillAmmo(EItem item)
  *  @param  doFillAmmo          Set to `true` if we must also fill ammo reserves
  *      of weapons we have added to the full.
  */
-public function AddItem(Text userProvidedName, bool doForce, bool doFillAmmo)
+public function AddItem(
+    BaseText    userProvidedName,
+    bool        doForce,
+    bool        doFillAmmo)
 {
     local EItem         addedItem;
     local MutableText   resolvedLine;
@@ -268,10 +271,10 @@ public function AddItem(Text userProvidedName, bool doForce, bool doFillAmmo)
  *      template and `false` to only remove one.
  */
 public function RemoveItem(
-    Text userProvidedName,
-    bool doKeep,
-    bool doForce,
-    bool doRemoveAll)
+    BaseText    userProvidedName,
+    bool        doKeep,
+    bool        doForce,
+    bool        doRemoveAll)
 {
     local bool          itemWasMissing;
     local Text          realItemName, itemTemplate;
@@ -332,7 +335,7 @@ public function RemoveItem(
 private function DetectAndReportRemovedItems(
     out array<EItem>    itemsAfterRemoval,
     array<EItem>        itemsBeforeRemoval,
-    array<Text>         itemNames,
+    array<BaseText>     itemNames,
     bool                doForce)
 {
     local int   i, j;

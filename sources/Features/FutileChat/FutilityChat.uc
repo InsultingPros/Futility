@@ -56,7 +56,7 @@ protected function FromData(AssociativeArray source)
 }
 
 private function ChatColorSetting ColorSettingFromText(
-    Text permissions)
+    BaseText permissions)
 {
     if (permissions == none) {
         return CCS_DoNothing;

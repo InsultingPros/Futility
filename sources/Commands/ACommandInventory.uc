@@ -241,9 +241,9 @@ protected function array<Text> LoadAllItemsLists(DynamicArray specifiedLists)
 }
 
 protected function array<Text> LoadItemsList(
-    Text        listName,
-    array<Text> availableLists,
-    ReportTool  badLists)
+    BaseText        listName,
+    array<BaseText> availableLists,
+    ReportTool      badLists)
 {
     local int           i;
     local array<Text>   emptyArray;

@@ -93,8 +93,8 @@ private function bool ReformatChatMessage(
     MutableText message,
     bool        teamMessage)
 {
-    local Text              messageCopy;
-    local Text.Formatting   defaultFormatting;
+    local Text                  messageCopy;
+    local BaseText.Formatting   defaultFormatting;
     if (sender == none)                 return true;
     if (message == none)                return true;
     if (colorSetting == CCS_DoNothing)  return true;
