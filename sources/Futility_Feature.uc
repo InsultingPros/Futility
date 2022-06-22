@@ -20,44 +20,62 @@
  */
 class Futility_Feature extends Feature;
 
-var LoggerAPI.Definition errNoCommandsFeature;
+var private array< class<Command> > allCommandClasses;
+
+var private LoggerAPI.Definition errNoCommandsFeature;
 
 protected function OnEnabled()
 {
-    local Commands_Feature commandsFeature;
+    local int               i;
+    local Commands_Feature  commandsFeature;
     commandsFeature =
-        Commands_Feature(class'Commands_Feature'.static.GetInstance());
+        Commands_Feature(class'Commands_Feature'.static.GetEnabledInstance());
     if (commandsFeature == none)
     {
         _.logger.Auto(errNoCommandsFeature);
         return;
     }
-    commandsFeature.RegisterCommand(class'ACommandDosh');
-    commandsFeature.RegisterCommand(class'ACommandNick');
-    commandsFeature.RegisterCommand(class'ACommandTrader');
-    commandsFeature.RegisterCommand(class'ACommandDB');
-    commandsFeature.RegisterCommand(class'ACommandInventory');
-    commandsFeature.RegisterCommand(class'ACommandFeature');
+    for (i = 0; i < allCommandClasses.length; i += 1) {
+        commandsFeature.RegisterCommand(allCommandClasses[i]);
+    }
+    _.environment.OnFeatureEnabled(self).connect = RegisterAllCommandClasses;
 }
 
 protected function OnDisabled()
 {
-    local Commands_Feature commandsFeature;
+    local int               i;
+    local Commands_Feature  commandsFeature;
     commandsFeature =
-        Commands_Feature(class'Commands_Feature'.static.GetInstance());
-    if (commandsFeature != none)
-    {
-        commandsFeature.RemoveCommand(class'ACommandDosh');
-        commandsFeature.RemoveCommand(class'ACommandNick');
-        commandsFeature.RemoveCommand(class'ACommandTrader');
-        commandsFeature.RemoveCommand(class'ACommandDB');
-        commandsFeature.RemoveCommand(class'ACommandInventory');
-        commandsFeature.RemoveCommand(class'ACommandFeature');
+        Commands_Feature(class'Commands_Feature'.static.GetEnabledInstance());
+    if (commandsFeature == none) {
+        return;
+    }
+    for (i = 0; i < allCommandClasses.length; i += 1) {
+        commandsFeature.RegisterCommand(allCommandClasses[i]);
+    }
+}
+
+private final function RegisterAllCommandClasses(Feature enabledFeature)
+{
+    local int               i;
+    local Commands_Feature  commandsFeature;
+    commandsFeature = Commands_Feature(enabledFeature);
+    if (commandsFeature == none) {
+        return;
+    }
+    for (i = 0; i < allCommandClasses.length; i += 1) {
+        commandsFeature.RegisterCommand(allCommandClasses[i]);
     }
 }
 
 defaultproperties
 {
     configClass = class'Futility'
+    allCommandClasses(0) = class'ACommandDosh'
+    allCommandClasses(1) = class'ACommandNick'
+    allCommandClasses(2) = class'ACommandTrader'
+    allCommandClasses(3) = class'ACommandDB'
+    allCommandClasses(4) = class'ACommandInventory'
+    allCommandClasses(5) = class'ACommandFeature'
     errNoCommandsFeature = (l=LOG_Error,m="`Commands_Feature` is not detected, \"Futility\" will not be able to provide its functionality.")
 }

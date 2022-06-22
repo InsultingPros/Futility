@@ -224,10 +224,8 @@ protected function class<Feature> LoadFeatureClass(BaseText featureName)
 protected function ShowAllFeatures()
 {
     local int                       i;
-    local CoreService               service;
     local array< class<Feature> >   availableFeatures;
-    service = CoreService(class'CoreService'.static.Require());
-    availableFeatures = service.GetAvailableFeatures();
+    availableFeatures = _.environment.GetAvailableFeatures();
     for (i = 0; i < availableFeatures.length; i ++) {
         ShowFeature(availableFeatures[i]);
     }
