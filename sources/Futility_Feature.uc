@@ -45,6 +45,7 @@ protected function OnDisabled()
 {
     local int               i;
     local Commands_Feature  commandsFeature;
+    _.environment.OnFeatureEnabled(self).Disconnect();
     commandsFeature =
         Commands_Feature(class'Commands_Feature'.static.GetEnabledInstance());
     if (commandsFeature == none) {

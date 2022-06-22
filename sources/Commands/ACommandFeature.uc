@@ -168,6 +168,7 @@ protected function DisableFeature(EPlayer callerPlayer, Text featureName)
     local Text              playerName;
     local Text              featureRealName;
     local class<Feature>    featureClass;
+
     featureClass = LoadFeatureClass(featureName);
     if (featureClass == none)   return;
     if (callerPlayer == none)   return;
@@ -185,15 +186,22 @@ protected function DisableFeature(EPlayer callerPlayer, Text featureName)
         return;
     }
     featureClass.static.DisableMe();
-    callerConsole
-            .Write(P("Feature "))
-            .UseColorOnce(_.color.TextEmphasis).Write(featureRealName)
-            .WriteLine(F(" is {$TextNegative disabled}"));
-    othersConsole
-            .Write(playerName).Write(F(" {$TextNegative disabled} feature "))
-            .UseColorOnce(_.color.TextEmphasis).WriteLine(featureRealName);
-    _.memory.Free(featureRealName);
-    _.memory.Free(playerName);
+    //  It is possible that this command itself is destroyed after above command
+    //  so do the check just in case
+    if (IsAllocated())
+    {
+        callerConsole
+                .Write(P("Feature "))
+                .UseColorOnce(_.color.TextEmphasis).Write(featureRealName)
+                .WriteLine(F(" is {$TextNegative disabled}"));
+        othersConsole
+                .Write(playerName)
+                .Write(F(" {$TextNegative disabled} feature "))
+                .UseColorOnce(_.color.TextEmphasis).WriteLine(featureRealName);
+    }
+    //  `_` might be gone here
+    __().memory.Free(featureRealName);
+    __().memory.Free(playerName);
 }
 
 protected function class<Feature> LoadFeatureClass(BaseText featureName)
