@@ -19,6 +19,19 @@
  */
 class ACommandNick extends Command;
 
+var private bool        foundErrors;
+var private MutableText newName;
+
+var private ACommandNick_Announcer announcer;
+
+protected function Finalizer()
+{
+    _.memory.Free(announcer);
+    _.memory.Free(newName);
+    newName = none;
+    super.Finalizer();
+}
+
 protected function BuildData(CommandDataBuilder builder)
 {
     builder.Name(P("nick")).Summary(P("Changes nickname."));
@@ -28,7 +41,7 @@ protected function BuildData(CommandDataBuilder builder)
     builder.Option(P("plain"))
         .Describe(P("Take nickname exactly as typed, without attempting to"
             @ "treat it like formatted string."));
-    builder.Option(P("fix"), P("F"))
+    builder.Option(P("fix"), P("f"))
         .Describe(P("In case of a nickname with erroroneous formatting or"
             @ "invalid default color (specified with `--color`),"
             @ "try to fix/ignore it instead of simply rejecting it."));
@@ -36,101 +49,80 @@ protected function BuildData(CommandDataBuilder builder)
         .Describe(P("Color to use for the nickname. In case nickname is already"
             @ "colored, this flag will only affects uncolored parts."))
         .ParamText(P("default_color"));
+    announcer = ACommandNick_Announcer(
+        _.memory.Allocate(class'ACommandNick_Announcer'));
 }
 
-protected function ExecutedFor(
-    EPlayer     player,
+protected function Executed(
     CallData    result,
     EPlayer     callerPlayer)
 {
-    local bool          foundErrors, selfChange;
-    local Text          givenName, oldName, callerName;
-    local MutableText   newName;
-    local array<FormattingErrorsReport.FormattedStringError> errors;
-    oldName     = player.GetName();
-    givenName   = result.parameters.GetText(P("nick"));
-    callerName  = callerPlayer.GetName();
-    selfChange  = callerPlayer.SameAs(player);
-    if (result.options.HasKey(P("plain")))
-    {
-        player.SetName(givenName);
-        AnnounceNicknameChange(callerName, oldName, givenName, selfChange);
-        _.memory.Free(oldName);
-        _.memory.Free(callerName);
-        return;
-    }
+    local Text                                                  givenName;
+    local array<FormattingErrorsReport.FormattedStringError>    errors;
+
+    givenName = result.parameters.GetText(P("nick"));
+    //      `newName`'s reference persists between different command calls and
+    //  only deallocated when we need this variable for the next execution.
+    //      "Leaking" a single `Text` like that is insignificant.
+    _.memory.Free(newName);
     newName = _.text.Empty();
-    errors = class'FormattingStringParser'.static
-        .ParseFormatted(givenName, newName, true);
+    if (result.options.HasKey(P("plain"))) {
+        newName = givenName.MutableCopy();
+    }
+    else
+    {
+        errors = class'FormattingStringParser'.static
+            .ParseFormatted(givenName, newName, true);
+    }
+    foundErrors = false;
     if (result.options.HasKey(P("color")))
     {
         foundErrors = !TryChangeDefaultColor(
-            newName, result.options.GetTextBy(P("/color/default_color")));
+            result.options.GetTextBy(P("/color/default_color")));
     }
     foundErrors = foundErrors || (errors.length > 0);
-    if (!foundErrors || result.options.HasKey(P("fix")))
-    {
-        player.SetName(newName);
-        AnnounceNicknameChange(callerName, oldName, newName, selfChange);
-    }
     class'FormattingReportTool'.static.Report(callerConsole, errors);
     class'FormattingReportTool'.static.FreeErrors(errors);
-    _.memory.Free(newName);
-    _.memory.Free(oldName);
-    _.memory.Free(callerName);
 }
 
-protected function bool TryChangeDefaultColor(
-    MutableText newName,
-    BaseText    specifiedColor)
+protected function ExecutedFor(
+    EPlayer     target,
+    CallData    result,
+    EPlayer     instigator)
+{
+    local Text alteredVersion;
+
+    if (!foundErrors || result.options.HasKey(P("fix")))
+    {
+        announcer.Setup(target, instigator, othersConsole);
+        target.SetName(newName);
+        alteredVersion = target.GetName();
+        if (newName.Compare(alteredVersion, SCASE_SENSITIVE, SFORM_SENSITIVE)) {
+            announcer.AnnounceChangedNickname(newName);
+        }
+        else {
+            announcer.AnnounceChangedAlteredNickname(newName, alteredVersion);
+        }
+        _.memory.Free(alteredVersion);
+    }
+}
+
+protected function bool TryChangeDefaultColor(BaseText specifiedColor)
 {
     local Color defaultColor;
+
     if (newName == none)        return false;
     if (specifiedColor == none) return false;
 
     if (_.color.Parse(specifiedColor, defaultColor))
     {
-        newName.ChangeDefaultFormatting(
-                _.text.FormattingFromColor(defaultColor));
+        newName.ChangeDefaultColor(defaultColor);
         return true;
     }
     callerConsole
         .Write(F("Specified {$TextFailure invalid} color: "))
         .WriteLine(specifiedColor);
     return false;
-}
-
-protected function AnnounceNicknameChange(
-    BaseText    callerName,
-    BaseText    oldName,
-    BaseText    newName,
-    bool        selfChange)
-{
-    if (selfChange)
-    {
-        callerConsole
-            .Write(F("Your nickname was {$TextPositive changed} to "))
-            .WriteLine(newName);
-        othersConsole
-            .Write(callerName)
-            .Write(F(" {$TextEmphasis changed} thier own nickname to "))
-            .WriteLine(newName);
-        return;
-    }
-    callerConsole
-        .Write(P("Nickname for player ")).Write(oldName)
-        .Write(F(" was {$TextPositive changed} to ")).WriteLine(newName);
-    targetConsole
-        .Write(F("Your nickname was {$TextEmphasis changed} to "))
-        .Write(newName)
-        .Write(P(" by "))
-        .WriteLine(callerName);
-    othersConsole
-        .Write(callerName)
-        .Write(F(" {$TextEmphasis changed} nickname for player "))
-        .Write(oldName)
-        .Write(P(" to "))
-        .WriteLine(newName);
 }
 
 defaultproperties
