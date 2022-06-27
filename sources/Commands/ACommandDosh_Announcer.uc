@@ -68,7 +68,7 @@ public final function AnnounceLostDosh(int doshAmount)
             "You {$TextPositive successfully took} {$TypeNumber %1} do$h from"
             @ "yourself!");
         lostDosh.toSelfPublic = _.text.MakeTemplate_S(
-            "%%instigator%% {$TextNegative took} {$TypeNumber %1} do$h from
+            "%%instigator%% {$TextNegative took} {$TypeNumber %1} do$h from"
             @ "themselves!");
         lostDosh.toOtherReport = _.text.MakeTemplate_S(
             "You {$TextPositive successfully took} {$TypeNumber %1} do$h from"
