@@ -253,7 +253,7 @@ private final function AnnounceTemplate(
     if (!template.IsInitialized())  return;
 
     template
-        .TextArg(P("intigator"), instigatorName)
+        .TextArg(P("instigator"), instigatorName)
         .TextArg(P("target"), targetName);
     result = template.CollectFormattedM();
     writer.Say(result);
