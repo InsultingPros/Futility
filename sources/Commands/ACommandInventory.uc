@@ -122,7 +122,7 @@ protected function ExecutedFor(
     if (!callerPlayer.SameAs(player)) {
         tool.ReportChanges(callerPlayer, targetConsole, IRT_Target);
     }
-    tool.ReportChanges(callerPlayer, callerConsole, IRT_Caller);
+    tool.ReportChanges(callerPlayer, callerConsole, IRT_Instigator);
     tool.ReportChanges(callerPlayer, othersConsole, IRT_Others);
     _.memory.Free(tool);
 }
@@ -219,12 +219,14 @@ protected function array<Text> LoadAllItemsLists(DynamicArray specifiedLists)
     local array<Text>   result;
     local array<Text>   nextItemBatch;
     local array<Text>   availableLists;
-    local ReportTool    badLists;
+    local ListBuilder   badLists;
+    local MutableText   badListsAsText;
+
     if (specifiedLists == none) {
         return result;
     }
-    badLists = ReportTool(_.memory.Allocate(class'ReportTool'));
-    badLists.Initialize(T(TLISTS_SKIPPED));
+    badLists = ListBuilder(_.memory.Allocate(class'ListBuilder'));
+    callerConsole.Write(T(TLISTS_SKIPPED));
     availableLists = _.kf.templates.GetAvailableLists();
     for (i = 0; i < specifiedLists.Getlength(); i += 1)
     {
@@ -234,8 +236,9 @@ protected function array<Text> LoadAllItemsLists(DynamicArray specifiedLists)
             result[result.length] = nextItemBatch[j];
         }
     }
-    badLists.Report(callerConsole);
-    _.memory.Free(badLists);
+    badListsAsText = badLists.IntoMutableText();
+    callerConsole.WriteLine(badListsAsText);
+    _.memory.Free(badListsAsText);
     _.memory.FreeMany(availableLists);
     return result;
 }
@@ -243,7 +246,7 @@ protected function array<Text> LoadAllItemsLists(DynamicArray specifiedLists)
 protected function array<Text> LoadItemsList(
     BaseText        listName,
     array<BaseText> availableLists,
-    ReportTool      badLists)
+    ListBuilder     badLists)
 {
     local int           i;
     local array<Text>   emptyArray;

@@ -48,7 +48,7 @@ var private EPlayer     targetPlayer;
 var private EInventory  targetInventory;
 
 /**
- *  `ReportTool`s for 6 different cases:
+ *  `ListBuilder`s for 6 different cases:
  *      ~   two of "...Verbose" and "...Failed" ones make reports about
  *          successes and failures of adding and removals to the instigator of
  *          these changes;
@@ -56,14 +56,18 @@ var private EInventory  targetInventory;
  *          successful changes to everybody else present on the server.
  *  Supposed to be created via `CreateFor()` method.
  */
-var private ReportTool itemsAdded;
-var private ReportTool itemsRemoved;
-var private ReportTool itemsAddedPrivate;
-var private ReportTool itemsRemovedPrivate;
-var private ReportTool itemsAdditionFailed;
-var private ReportTool itemsRemovalFailed;
+var public ListBuilder itemsAdded;
+var public ListBuilder itemsRemoved;
+var public ListBuilder itemsAddedPrivate;
+var public ListBuilder itemsRemovedPrivate;
+var public ListBuilder itemsAdditionFailed;
+var public ListBuilder itemsRemovalFailed;
 
-var const int TITEMS_ADDED_MESSAGE, TITEMS_ADDED_VEROBSE_MESSAGE;
+var private TextTemplate templateItemsAdded, templateItemsRemoved;
+var private TextTemplate templateItemsAddedVerbose, templateItemsRemovedVerbose;
+var private TextTemplate templateAdditionFailed, templateRemovalFailed;
+
+var const int TINSTIGATOR, TTARGET;
 var const int TITEMS_REMOVED_MESSAGE, TITEMS_REMOVED_VERBOSE_MESSAGE;
 var const int TITEMS_ADDITION_FAILED_MESSAGE, TITEMS_REMOVAL_FAILED_MESSAGE;
 var const int TRESOLVED_INTO, TTILDE_QUOTE, TFAULTY_INVENTORY_IMPLEMENTATION;
@@ -72,20 +76,35 @@ var const int TDISPLAYING_INVENTORY, THEADER_COLON, TDOT_SPACE, TCOLON_SPACE;
 var const int TCOMMA_SPACE, TSPACE, TOUT_OF, THIDDEN_ITEMS, TDOLLAR, TYOU;
 var const int TYOURSELF, TTHEMSELVES;
 
+public static function StaticConstructor()
+{
+    if (StaticConstructorGuard()) {
+        return;
+    }
+    default.templateItemsAdded = __().text.MakeTemplate_S(
+        "%%instigator%% {$TextPositive added} following weapons to"
+        @ "%%target%%: ");
+    default.templateItemsRemoved = __().text.MakeTemplate_S(
+        "Weapons {$TextPositive added} to %%target%%: ");
+    default.templateItemsAddedVerbose = __().text.MakeTemplate_S(
+        "%%instigator%% {$TextNegative removed} following weapons from"
+        @ "%%target%%: ");
+    default.templateItemsRemovedVerbose = __().text.MakeTemplate_S(
+        "Weapons {$TextNegative removed} from %%target%%: ");
+    default.templateAdditionFailed = __().text.MakeTemplate_S(
+        "Weapons we've {$TextFailure failed} to add to %%target%%: ");
+    default.templateRemovalFailed = __().text.MakeTemplate_S(
+        "Weapons we've {$TextFailure failed} to remove from %%target%%:" );
+}
+
 protected function Constructor()
 {
-    itemsAdded          = ReportTool(_.memory.Allocate(class'ReportTool'));
-    itemsRemoved        = ReportTool(_.memory.Allocate(class'ReportTool'));
-    itemsAddedPrivate   = ReportTool(_.memory.Allocate(class'ReportTool'));
-    itemsRemovedPrivate = ReportTool(_.memory.Allocate(class'ReportTool'));
-    itemsAdditionFailed = ReportTool(_.memory.Allocate(class'ReportTool'));
-    itemsRemovalFailed  = ReportTool(_.memory.Allocate(class'ReportTool'));
-    itemsAdded.Initialize(T(TITEMS_ADDED_MESSAGE));
-    itemsRemoved.Initialize(T(TITEMS_REMOVED_MESSAGE));
-    itemsAddedPrivate.Initialize(T(TITEMS_ADDED_VEROBSE_MESSAGE));
-    itemsRemovedPrivate.Initialize(T(TITEMS_REMOVED_VERBOSE_MESSAGE));
-    itemsAdditionFailed.Initialize(T(TITEMS_ADDITION_FAILED_MESSAGE));
-    itemsRemovalFailed.Initialize(T(TITEMS_REMOVAL_FAILED_MESSAGE));
+    itemsAdded          = ListBuilder(_.memory.Allocate(class'ListBuilder'));
+    itemsRemoved        = ListBuilder(_.memory.Allocate(class'ListBuilder'));
+    itemsAddedPrivate   = ListBuilder(_.memory.Allocate(class'ListBuilder'));
+    itemsRemovedPrivate = ListBuilder(_.memory.Allocate(class'ListBuilder'));
+    itemsAdditionFailed = ListBuilder(_.memory.Allocate(class'ListBuilder'));
+    itemsRemovalFailed  = ListBuilder(_.memory.Allocate(class'ListBuilder'));
 }
 
 protected function Finalizer()
@@ -121,6 +140,7 @@ protected function Finalizer()
 public static final function InventoryTool CreateFor(EPlayer target)
 {
     local InventoryTool newInventoryTool;
+
     if (target == none)         return none;
     if (!target.IsExistent())   return none;
 
@@ -137,6 +157,7 @@ private final function bool TargetPlayerIsInvalid()
 {
     if (targetPlayer == none)       return true;
     if (!targetPlayer.IsExistent()) return true;
+
     return false;
 }
 
@@ -178,6 +199,7 @@ private function MutableText MakeResolvedIntoLine(
 private function TryFillAmmo(EItem item)
 {
     local EWeapon itemAsWeapon;
+
     if (item == none) {
         return;
     }
@@ -209,6 +231,7 @@ public function AddItem(
     local EItem         addedItem;
     local MutableText   resolvedLine;
     local Text          realItemName, itemTemplate, failureReason;
+
     if (TargetPlayerIsInvalid())    return;
     if (userProvidedName == none)   return;
 
@@ -226,7 +249,7 @@ public function AddItem(
         .CanAddTemplateExplain(itemTemplate, doForce);
     if (failureReason != none)
     {
-        itemsAdditionFailed.Item(userProvidedName).Detail(failureReason);
+        itemsAdditionFailed.Item(userProvidedName).Comment(failureReason);
         _.memory.Free(failureReason);
         _.memory.Free(itemTemplate);
         return;
@@ -241,7 +264,7 @@ public function AddItem(
         realItemName = addedItem.GetName();
         resolvedLine = MakeResolvedIntoLine(userProvidedName, itemTemplate);
         itemsAdded.Item(realItemName);
-        itemsAddedPrivate.Item(realItemName).Detail(resolvedLine);
+        itemsAddedPrivate.Item(realItemName).Comment(resolvedLine);
         _.memory.Free(realItemName);
         _.memory.Free(resolvedLine);
         _.memory.Free(addedItem);
@@ -251,7 +274,7 @@ public function AddItem(
         //  `CanAddTemplateExplain()` told us that we should not have failed,
         //  so complain about bad API
         itemsAdditionFailed.Item(userProvidedName)
-            .Detail(T(TFAULTY_INVENTORY_IMPLEMENTATION));
+            .Comment(T(TFAULTY_INVENTORY_IMPLEMENTATION));
     }
     _.memory.Free(itemTemplate);
 }
@@ -280,6 +303,7 @@ public function RemoveItem(
     local Text          realItemName, itemTemplate;
     local MutableText   resolvedLine;
     local EItem         storedItem;
+
     if (TargetPlayerIsInvalid())    return;
     if (userProvidedName == none)   return;
 
@@ -309,21 +333,21 @@ public function RemoveItem(
     {
         resolvedLine = MakeResolvedIntoLine(userProvidedName, itemTemplate);
         itemsRemoved.Item(realItemName);
-        itemsRemovedPrivate.Item(realItemName).Detail(resolvedLine);
+        itemsRemovedPrivate.Item(realItemName).Comment(resolvedLine);
         _.memory.Free(resolvedLine);
     }
     //  Try to guess why operation failed
     //  (no special explanation method is present in the API)
     else if (itemWasMissing) {  //  likely because it was missing
-        itemsRemovalFailed.Item(userProvidedName).Detail(T(TITEM_MISSING));
+        itemsRemovalFailed.Item(userProvidedName).Comment(T(TITEM_MISSING));
     }
     else if (!doForce && !storedItem.IsRemovable()) //  simply was not removable
     {
         itemsRemovalFailed.Item(userProvidedName)
-            .Detail(T(TITEM_NOT_REMOVABLE));
+            .Comment(T(TITEM_NOT_REMOVABLE));
     }
     else {  //  no idea about the reason
-        itemsRemovalFailed.Item(userProvidedName).Detail(T(TUNKNOWN));
+        itemsRemovalFailed.Item(userProvidedName).Comment(T(TUNKNOWN));
     }
     _.memory.Free(storedItem);
     _.memory.Free(realItemName);
@@ -340,6 +364,7 @@ private function DetectAndReportRemovedItems(
 {
     local int   i, j;
     local bool  itemWasRemoved;
+
     for (i = 0; i < itemsBeforeRemoval.length; i += 1)
     {
         itemWasRemoved = true;
@@ -363,7 +388,7 @@ private function DetectAndReportRemovedItems(
             itemsRemovedPrivate.Item(itemNames[i]);
         }
         else if (doForce || itemsBeforeRemoval[i].IsRemovable()) {
-            itemsRemovalFailed.Item(itemNames[i]).Detail(T(TUNKNOWN));
+            itemsRemovalFailed.Item(itemNames[i]).Comment(T(TUNKNOWN));
         }
     }
 }
@@ -384,6 +409,7 @@ public function RemoveAllItems(bool doKeep, bool doForce, bool includeHidden)
     local int           i;
     local array<Text>   itemNames;
     local array<EItem>  itemsBeforeRemoval, itemsAfterRemoval;
+
     if (TargetPlayerIsInvalid()) {
         return;
     }
@@ -433,6 +459,7 @@ public function RemoveEquippedItems(
     local EItem         nextItem;
     local Text          nextItemName;
     local array<EItem>  equippedItems;
+
     if (TargetPlayerIsInvalid()) {
         return;
     }
@@ -449,13 +476,13 @@ public function RemoveEquippedItems(
         {
             itemsRemovalFailed
                 .Item(nextItemName)
-                .Detail(T(TITEM_NOT_REMOVABLE));
+                .Comment(T(TITEM_NOT_REMOVABLE));
         }
         else if (!targetInventory.Remove(nextItem, doKeep, doForce))
         {
             itemsRemovalFailed
                 .Item(nextItemName)
-                .Detail(T(TUNKNOWN));
+                .Comment(T(TUNKNOWN));
         }
         _.memory.Free(nextItemName);
         nextItemName = none;
@@ -472,10 +499,10 @@ public function RemoveEquippedItems(
  *      the changes.
  *  @param  writer          `ConsoleWriter` that will be used to output report.
  *      Method does nothing if given `writer` is `none`.
- *  @param  publicReport    Is this report meant for the public or for
- *      the player that caused the changes? Former only (briefly) lists
- *      successful changes, while latter also provides report about failed
- *      changes.
+ *  @param  reportTarget    For who is this report meant to? For general public
+ *      and target only actually occured changes are reported (with different
+ *      phrasing), but for instigator changes that tool failed to do will also
+ *      be reported.
  */
 public final function ReportChanges(
     EPlayer                 blamedPlayer,
@@ -483,6 +510,7 @@ public final function ReportChanges(
     InventoryReportTarget   reportTarget)
 {
     local Text blamedName, targetName;
+
     if (TargetPlayerIsInvalid())    return;
     if (blamedPlayer == none)       return;
 
@@ -495,35 +523,94 @@ public final function ReportChanges(
         if (reportTarget == IRT_Instigator) {
             targetName = T(TYOURSELF).Copy();
         }
+        else if (reportTarget == IRT_Target) {
+            targetName = T(TYOU).Copy();
+        }
         else {
             targetName = T(TTHEMSELVES).Copy();
         }
     }
+    default.templateItemsAdded
+        .TextArg(T(TINSTIGATOR), blamedName)
+        .TextArg(T(TTARGET), targetName);
+    default.templateItemsRemoved
+        .TextArg(T(TINSTIGATOR), blamedName)
+        .TextArg(T(TTARGET), targetName);
     if (reportTarget == IRT_Others)
     {
-        itemsAdded.Report(writer, blamedName, targetName);
-        itemsRemoved.Report(writer, blamedName, targetName);
+        ReportWeaponList(writer, default.templateItemsAdded, itemsAdded);
+        ReportWeaponList(writer, default.templateItemsRemoved, itemsRemoved);
     }
     else if (reportTarget == IRT_Target)
     {
-        itemsAdded.Report(writer, blamedName, T(TYOU));
-        itemsRemoved.Report(writer, blamedName, T(TYOU));
+        ReportWeaponList(writer, default.templateItemsAdded, itemsAdded);
+        ReportWeaponList(writer, default.templateItemsRemoved, itemsRemoved);
     }
     else if (reportTarget == IRT_Instigator)
     {
-        if (targetPlayer.SameAs(blamedPlayer))
-        {
-            _.memory.Free(targetName);
-            targetName = T(TYOURSELF).Copy();
-        }
-        itemsAddedPrivate.Report(writer, blamedName, targetName);
-        itemsRemovedPrivate.Report(writer, blamedName, targetName);
-        itemsAdditionFailed.Report(writer, blamedName, targetName);
-        itemsRemovalFailed.Report(writer, blamedName, targetName);
+        default.templateItemsAddedVerbose
+            .TextArg(T(TINSTIGATOR), blamedName)
+            .TextArg(T(TTARGET), targetName);
+        default.templateItemsRemovedVerbose
+            .TextArg(T(TINSTIGATOR), blamedName)
+            .TextArg(T(TTARGET), targetName);
+        default.templateAdditionFailed
+            .TextArg(T(TINSTIGATOR), blamedName)
+            .TextArg(T(TTARGET), targetName);
+        default.templateremovalFailed
+            .TextArg(T(TINSTIGATOR), blamedName)
+            .TextArg(T(TTARGET), targetName);
+        ReportWeaponList(
+            writer,
+            default.templateItemsAddedVerbose,
+            itemsAddedPrivate);
+        ReportWeaponList(
+            writer,
+            default.templateItemsRemovedVerbose,
+            itemsRemovedPrivate);
+        ReportWeaponList(
+            writer,
+            default.templateAdditionFailed,
+            itemsAdditionFailed);
+        ReportWeaponList(
+            writer,
+            default.templateremovalFailed,
+            itemsRemovalFailed);
     }
     _.memory.Free(blamedName);
     _.memory.Free(targetName);
 }
+
+private final function ReportWeaponList(
+    ConsoleWriter   writer,
+    TextTemplate    header,
+    ListBuilder     builder)
+{
+    local MutableText output;
+
+    if (writer == none) {
+        return;
+    }
+    if (header != none)
+    {
+        output = header.CollectFormattedM();
+        writer.Write(output);
+        _.memory.Free(output);
+        output = none;
+    }
+    if (builder != none) {
+        output = builder.GetMutable();
+    }
+    writer.WriteLine(output);
+    _.memory.Free(output);
+}
+
+/*    itemsAdded.Initialize(T(TITEMS_ADDED_MESSAGE));
+    itemsRemoved.Initialize(T(TITEMS_REMOVED_MESSAGE));
+    itemsAddedPrivate.Initialize(T(TITEMS_ADDED_VEROBSE_MESSAGE));
+    itemsRemovedPrivate.Initialize(T(TITEMS_REMOVED_VERBOSE_MESSAGE));
+    itemsAdditionFailed.Initialize(T(TITEMS_ADDITION_FAILED_MESSAGE));
+    itemsRemovalFailed.Initialize(T(TITEMS_REMOVAL_FAILED_MESSAGE)); */
 
 /**
  *  Command that outputs summary of the player's inventory.
@@ -540,6 +627,7 @@ public final function ReportInventory(ConsoleWriter writer, bool includeHidden)
     local int           lineCounter;
     local array<EItem>  availableItems;
     local Text          playerName;
+
     if (writer == none)             return;
     if (TargetPlayerIsInvalid())    return;
 
@@ -585,6 +673,7 @@ private final function AppendItemInfo(
     local Text          lineNumberAsText;
     local EWeapon       itemAsWeapon;
     local Mutabletext   allAmmoInfo;
+
     if (writer == none) return;
     if (item == none)   return;
 
@@ -614,6 +703,7 @@ private final function MutableText DisplayAllAmmoInfo(EWeapon weapon)
     local int           i;
     local array<EAmmo>  allAmmo;
     local MutableText   builder;
+
     allAmmo = weapon.GetAvailableAmmo();
     if (allAmmo.length == 0) {
         return none;
@@ -633,6 +723,7 @@ private final function MutableText DisplayAllAmmoInfo(EWeapon weapon)
 private final function AppendAmmoInstanceInfo(MutableText builder, EAmmo ammo)
 {
     local Text ammoName;
+
     if (ammo == none) {
         return;
     }
@@ -647,10 +738,12 @@ private final function AppendAmmoInstanceInfo(MutableText builder, EAmmo ammo)
 
 defaultproperties
 {
-    TITEMS_ADDED_MESSAGE                = 0
-    stringConstants(0)  = "%%instigator%% {$TextPositive added} following weapons to %%target%%:"
-    TITEMS_ADDED_VEROBSE_MESSAGE        = 1
-    stringConstants(1)  = "Weapons {$TextPositive added} to %%target%%:"
+    //  TODO remove old constants
+    //  TODO refactor `ReportChanges()`
+    TINSTIGATOR                         = 0
+    stringConstants(0)  = "%%instigator%%"
+    TTARGET                             = 1
+    stringConstants(1)  = "%%target%%"
     TITEMS_REMOVED_MESSAGE              = 2
     stringConstants(2)  = "%%instigator%% {$TextNegative removed} following weapons from %%target%%:"
     TITEMS_REMOVED_VERBOSE_MESSAGE      = 3

@@ -38,16 +38,18 @@ public final static function Report(
     array<FormattingErrorsReport.FormattedStringError>  errors)
 {
     local int           i;
-    local ReportTool    reportTool;
-    reportTool = ReportTool(__().memory.Allocate(class'ReportTool'));
-    reportTool.Initialize(T(default.TREPORT_HEADER));
+    local ListBuilder   builder;
+    local MutableText   itemList;
+
+    builder = ListBuilder(__().memory.Allocate(class'ListBuilder'));
+    writer.Write(T(default.TREPORT_HEADER));
     for (i = 0; i < errors.length; i += 1)
     {
         if (errors[i].type == FSE_UnmatchedClosingBrackets)
         {
             ReportCount(
                 errors[i],
-                reportTool,
+                builder,
                 default.TUNMATCHED_SINGLE,
                 default.TUNMATCHED_MULTIPLE);
         }
@@ -55,25 +57,26 @@ public final static function Report(
         {
             ReportCount(
                 errors[i],
-                reportTool,
+                builder,
                 default.TEMPTY_TAG_SINGLE,
                 default.TEMPTY_TAG_MULTIPLE);
         }
         else if (errors[i].type == FSE_BadColor) {
-            reportTool.Item(T(default.TBAD_COLOR)).Detail(errors[i].cause);
+            builder.Item(T(default.TBAD_COLOR)).Comment(errors[i].cause);
         }
         else if (errors[i].type == FSE_BadShortColorTag) {
-            reportTool.Item(T(default.TBADSHORT_TAG)).Detail(errors[i].cause);
+            builder.Item(T(default.TBADSHORT_TAG)).Comment(errors[i].cause);
         }
         else if (errors[i].type == FSE_BadGradientPoint)
         {
-            reportTool
+            builder
                 .Item(T(default.TBAD_GRADIENT_POINT))
-                .Detail(errors[i].cause);
+                .Comment(errors[i].cause);
         }
     }
-    reportTool.Report(writer);
-    __().memory.Free(reportTool);
+    itemList = builder.IntoMutableText();
+    writer.WriteLine(itemList);
+    __().memory.Free(itemList);
 }
 
 /**
@@ -86,6 +89,7 @@ public final static function FreeErrors(
     array<FormattingErrorsReport.FormattedStringError>  errors)
 {
     local int i;
+
     for (i = 0; i < errors.length; i += 1) {
         __().memory.Free(errors[i].cause);
     }
@@ -93,40 +97,42 @@ public final static function FreeErrors(
 
 private final static function ReportCause(
     FormattingErrorsReport.FormattedStringError error,
-    ReportTool                                  reportTool,
+    ListBuilder                                 builder,
     int                                         sentence)
 {
-    local MutableText builder;
+    local MutableText causeBuilder;
+
     if (error.cause == none) {
         return;
     }
-    reportTool.Item(T(sentence));
-    builder = __().text.FromIntM(error.count).Append(T(default.TCASES));
-    reportTool.Detail(builder);
-    __().memory.Free(builder);
+    builder.Item(T(sentence));
+    causeBuilder = __().text.FromIntM(error.count).Append(T(default.TCASES));
+    builder.Comment(causeBuilder);
+    __().memory.Free(causeBuilder);
 }
 
 //  In the methods below, do not double check the error type in the following
-//  errors or whether `reportTool != none`
+//  errors or whether `builder != none`
 private final static function ReportCount(
     FormattingErrorsReport.FormattedStringError error,
-    ReportTool                                  reportTool,
+    ListBuilder                                 builder,
     int                                         singleSentence,
     int                                         multipleSentence)
 {
-    local MutableText builder;
+    local MutableText commentBuilder;
+
     if (error.count < 1) {
         return;
     }
     if (error.count == 1)
     {
-        reportTool.Item(T(singleSentence));
+        builder.Item(T(singleSentence));
         return;
     }
-    reportTool.Item(T(multipleSentence));
-    builder = __().text.FromIntM(error.count).Append(T(default.TCASES));
-    reportTool.Detail(builder);
-    __().memory.Free(builder);
+    builder.Item(T(multipleSentence));
+    commentBuilder = __().text.FromIntM(error.count).Append(T(default.TCASES));
+    builder.Comment(commentBuilder);
+    __().memory.Free(commentBuilder);
 }
 
 defaultproperties

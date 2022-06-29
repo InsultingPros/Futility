@@ -190,7 +190,7 @@ protected function ShowFeature(class<Feature> feature)
     local int                   i;
     local Text                  autoConfig;
     local MutableText           featureName, builder;
-    local ReportTool            reportTool;
+    local ListBuilder           configList;
     local array<Text>           availableConfigs;
     local class<FeatureConfig>  configClass;
 
@@ -203,8 +203,7 @@ protected function ShowFeature(class<Feature> feature)
     }
     featureName = _.text
         .FromClassM(feature)
-        .ChangeDefaultFormatting(
-            _.text.FormattingFromColor(_.color.TextEmphasis));
+        .ChangeDefaultColor(_.color.TextEmphasis);
     builder = _.text.Empty();
     if (feature.static.IsEnabled()) {
         builder.Append(F("[  {$TextPositive enabled} ] "));
@@ -220,26 +219,25 @@ protected function ShowFeature(class<Feature> feature)
     else if (availableConfigs.length > 1) {
         builder.Append(P(" with configs:"));
     }
-    reportTool = ReportTool(_.memory.Allocate(class'ReportTool'));
-    reportTool.Initialize(builder);
+    callerConsole.Write(builder);
     _.memory.Free(builder);
+    configList = ListBuilder(_.memory.Allocate(class'ListBuilder'));
     autoConfig = configClass.static.GetAutoEnabledConfig();
     for (i = 0; i < availableConfigs.length; i += 1)
     {
-        builder = _.text.Empty().Append(availableConfigs[i]);
-        reportTool.Item(builder);
+        configList.Item(availableConfigs[i]);
         if (    autoConfig != none
             &&  autoConfig.Compare(availableConfigs[i], SCASE_INSENSITIVE))
         {
-            reportTool.Detail(F("{$TextPositive auto enabled}"));
+            configList.Comment(F("{$TextPositive auto enabled}"));
         }
-        _.memory.Free(builder);
-        builder = none;
     }
-    reportTool.Report(callerConsole);
+    builder = configList.GetMutable();
+    callerConsole.WriteLine(builder);
     _.memory.FreeMany(availableConfigs);
-    _.memory.Free(reportTool);
+    _.memory.Free(configList);
     _.memory.Free(autoConfig);
+    _.memory.Free(builder);
 }
 
 defaultproperties
