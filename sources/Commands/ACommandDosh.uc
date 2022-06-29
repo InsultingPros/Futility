@@ -53,22 +53,22 @@ protected function BuildData(CommandDataBuilder builder)
 
 protected function ExecutedFor(
     EPlayer     target,
-    CallData    result,
+    CallData    arguments,
     EPlayer     instigator)
 {
     local int oldAmount, newAmount;
     local int amount, minValue, maxValue;
 
     //  Find min and max value boundaries
-    minValue = result.options.GetIntBy(P("/min/minValue"), 0);
-    maxValue = result.options.GetIntBy(P("/max/maxValue"), MaxInt);
+    minValue = arguments.options.GetIntBy(P("/min/minValue"), 0);
+    maxValue = arguments.options.GetIntBy(P("/max/maxValue"), MaxInt);
     if (minValue > maxValue) {
         maxValue = minValue;
     }
     //  Change dosh
     oldAmount = target.GetDosh();
-    amount = result.parameters.GetInt(P("amount"));
-    if (result.subCommandName.IsEmpty()) {
+    amount = arguments.parameters.GetInt(P("amount"));
+    if (arguments.subCommandName.IsEmpty()) {
         newAmount = oldAmount + amount;
     }
     else {

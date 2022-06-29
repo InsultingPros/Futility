@@ -54,19 +54,19 @@ protected function BuildData(CommandDataBuilder builder)
 }
 
 protected function Executed(
-    CallData    result,
+    CallData    arguments,
     EPlayer     callerPlayer)
 {
     local Text                                                  givenName;
     local array<FormattingErrorsReport.FormattedStringError>    errors;
 
-    givenName = result.parameters.GetText(P("nick"));
+    givenName = arguments.parameters.GetText(P("nick"));
     //      `newName`'s reference persists between different command calls and
     //  only deallocated when we need this variable for the next execution.
     //      "Leaking" a single `Text` like that is insignificant.
     _.memory.Free(newName);
     newName = _.text.Empty();
-    if (result.options.HasKey(P("plain"))) {
+    if (arguments.options.HasKey(P("plain"))) {
         newName = givenName.MutableCopy();
     }
     else
@@ -75,10 +75,10 @@ protected function Executed(
             .ParseFormatted(givenName, newName, true);
     }
     foundErrors = false;
-    if (result.options.HasKey(P("color")))
+    if (arguments.options.HasKey(P("color")))
     {
         foundErrors = !TryChangeDefaultColor(
-            result.options.GetTextBy(P("/color/default_color")));
+            arguments.options.GetTextBy(P("/color/default_color")));
     }
     foundErrors = foundErrors || (errors.length > 0);
     class'FormattingReportTool'.static.Report(callerConsole, errors);
@@ -87,12 +87,12 @@ protected function Executed(
 
 protected function ExecutedFor(
     EPlayer     target,
-    CallData    result,
+    CallData    arguments,
     EPlayer     instigator)
 {
     local Text alteredVersion;
 
-    if (!foundErrors || result.options.HasKey(P("fix")))
+    if (!foundErrors || arguments.options.HasKey(P("fix")))
     {
         announcer.Setup(target, instigator, othersConsole);
         target.SetName(newName);
