@@ -27,8 +27,8 @@ class ReportTool extends AcediaObject;
 /**
  *  How to use:
  *      1.  Specify "list header" via `Initialize()` method right after creating
- *          a new instance of `ReportTool`. It can contain "%cause%" and
- *          "%target%" substrings, that will be replaces with approprtiate
+ *          a new instance of `ReportTool`. It can contain "%%instigator%%" and
+ *          "%%target%%" substrings, that will be replaces with approprtiate
  *          parameters of `Report()` method when it is invoked;
  *      2.  Use `Item()` method to add new items (they will be listed after
  *          list header + whitespace, separated by commas and whitespaces ", ");
@@ -42,8 +42,8 @@ class ReportTool extends AcediaObject;
  *          (but not list header), allowing to start forming a new report.
  */
 
-//      Header template (with possible "%cause%" and "%target%" placeholders)
-//  for the lists this `ReportTool` will generate.
+//      Header template (with possible "%%instigator%%" and "%%target%%"
+//  placeholders) for the lists this `ReportTool` will generate.
 //      Doubles as a way to remember whether `ReportTool` was already
 //  initialized (iff `headerTemplate != none`).
 var private Text headerTemplate;
@@ -71,10 +71,10 @@ protected function Finalizer()
  *  Initialized a new `ReportTool` with appropriate template to serve as
  *  a header.
  *
- *  Template (`template`) is allowed to contain "%cause%" and "%target%"
- *  placeholder substrings that will be replaced with corresponding names of the
- *  player that caused a change we are reporting and player affefcted by
- *  that change.
+ *  Template (`template`) is allowed to contain "%%instigator%%" and
+ *  "%%target%%" placeholder substrings that will be replaced with corresponding
+ *  names of the player that caused a change we are reporting and player
+ *  affefcted by that change.
  *
  *  @param  template    Template for the header of the reports made by
  *      the caller `ReportTool`.
@@ -101,6 +101,7 @@ public final function Initialize(BaseText template)
 public final function ReportTool Item(BaseText item)
 {
     local ReportItem newItem;
+
     if (headerTemplate == none) return self;
     if (item == none)           return self;
 
@@ -122,6 +123,7 @@ public final function ReportTool Item(BaseText item)
 public final function ReportTool Detail(BaseText detail)
 {
     local array<Text> detailToReport;
+
     if (headerTemplate == none)     return self;
     if (detail == none)             return self;
     if (itemsToReport.length == 0)  return self;
@@ -136,32 +138,28 @@ public final function ReportTool Detail(BaseText detail)
  *  Outputs report assembled thus far into the provided `ConsoleWriter`.
  *  Reports will be made only if at least one items was added (see `Item()`).
  *
- *  @param  writer  `ConsoleWriter` to output report into.
- *  @param  cause   Player that caused the change this report is about.
- *      Their name will replace "%cause%" substring in the header template
- *      (if it is contained there).
- *  @param  target  Player that was affected by the change this report is about.
- *      Their name will replace "%target%" substring in the header template
- *      (if it is contained there).
+ *  @param  writer      `ConsoleWriter` to output report into.
+ *  @param  instigator  Player that caused the change this report is about.
+ *      Their name will replace "%%instigator%%" substring in the header
+ *      template (if it is contained there).
+ *  @param  target      Player that was affected by the change this report is
+ *      about. Their name will replace "%%target%%" substring in the header
+ *      template (if it is contained there).
  *  @return Reference to the caller `ReportTool` to allow for method chaining.
  */
 public final function ReportTool Report(
     ConsoleWriter       writer,
-    optional BaseText   cause,
+    optional BaseText   instigator,
     optional BaseText   target)
 {
     local int           i, j;
-    local MutableText   intro;
     local array<Text>   detailToReport;
+
     if (headerTemplate == none)     return self;
     if (itemsToReport.length == 0)  return self;
     if (writer == none)             return self;
 
-    intro = headerTemplate.MutableCopy()
-        .Replace(T(TCAUSE), cause)
-        .Replace(T(TTARGET), target);
-    writer.Flush().Write(intro);
-    _.memory.Free(intro);
+    AppendHeader(writer, instigator, target);
     for (i = 0; i < itemsToReport.length; i += 1)
     {
         if (i > 0) {
@@ -185,6 +183,35 @@ public final function ReportTool Report(
     }
     writer.Flush();
     return self;
+}
+
+private final function AppendHeader(
+    ConsoleWriter       writer,
+    optional BaseText   instigator,
+    optional BaseText   target)
+{
+    local MutableText   intro;
+    local MutableText   grayInstigatorName, grayTargetName;
+
+    if (headerTemplate == none) return;
+    if (writer == none)         return;
+
+    if (instigator != none)
+    {
+        grayInstigatorName = instigator
+            .MutableCopy()
+            .ChangeDefaultColor(_.color.Gray);
+    }
+    if (target != none) {
+        grayTargetName = target.MutableCopy().ChangeDefaultColor(_.color.Gray);
+    }
+    intro = headerTemplate.MutableCopy()
+        .Replace(T(TCAUSE), grayInstigatorName)
+        .Replace(T(TTARGET), grayTargetName);
+    writer.Flush().Write(intro);
+    _.memory.Free(intro);
+    _.memory.Free(grayTargetName);
+    _.memory.Free(grayInstigatorName);
 }
 
 /**
@@ -211,9 +238,9 @@ public final function ReportTool Reset()
 defaultproperties
 {
     TCAUSE                  = 0
-    stringConstants(0)  = "%cause%"
+    stringConstants(0)  = "%%instigator%%"
     TTARGET                 = 1
-    stringConstants(1)  = "%target%"
+    stringConstants(1)  = "%%target%%"
     TCOMMA                  = 2
     stringConstants(2) = ","
     TSPACE                  = 3

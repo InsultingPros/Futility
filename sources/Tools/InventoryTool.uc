@@ -27,7 +27,7 @@ class InventoryTool extends AcediaObject;
 
 enum InventoryReportTarget
 {
-    IRT_Caller,
+    IRT_Instigator,
     IRT_Target,
     IRT_Others
 };
@@ -492,7 +492,7 @@ public final function ReportChanges(
     }
     else
     {
-        if (reportTarget == IRT_Caller) {
+        if (reportTarget == IRT_Instigator) {
             targetName = T(TYOURSELF).Copy();
         }
         else {
@@ -509,7 +509,7 @@ public final function ReportChanges(
         itemsAdded.Report(writer, blamedName, T(TYOU));
         itemsRemoved.Report(writer, blamedName, T(TYOU));
     }
-    else if (reportTarget == IRT_Caller)
+    else if (reportTarget == IRT_Instigator)
     {
         if (targetPlayer.SameAs(blamedPlayer))
         {
@@ -648,17 +648,17 @@ private final function AppendAmmoInstanceInfo(MutableText builder, EAmmo ammo)
 defaultproperties
 {
     TITEMS_ADDED_MESSAGE                = 0
-    stringConstants(0)  = "%cause% has {$TextPositive added} following weapons to %target%:"
+    stringConstants(0)  = "%%instigator%% {$TextPositive added} following weapons to %%target%%:"
     TITEMS_ADDED_VEROBSE_MESSAGE        = 1
-    stringConstants(1)  = "Weapons {$TextPositive added} to %target%:"
+    stringConstants(1)  = "Weapons {$TextPositive added} to %%target%%:"
     TITEMS_REMOVED_MESSAGE              = 2
-    stringConstants(2)  = "%cause% has {$TextNegative removed} following weapons from %target%:"
+    stringConstants(2)  = "%%instigator%% {$TextNegative removed} following weapons from %%target%%:"
     TITEMS_REMOVED_VERBOSE_MESSAGE      = 3
-    stringConstants(3)  = "Weapons {$TextNegative removed} from %target%:"
+    stringConstants(3)  = "Weapons {$TextNegative removed} from %%target%%:"
     TITEMS_ADDITION_FAILED_MESSAGE      = 4
-    stringConstants(4)  = "Weapons we've {$TextFailure failed} to add to %target%:"
+    stringConstants(4)  = "Weapons we've {$TextFailure failed} to add to %%target%%:"
     TITEMS_REMOVAL_FAILED_MESSAGE       = 5
-    stringConstants(5)  = "Weapons we've {$TextFailure failed} to remove from %target%:"
+    stringConstants(5)  = "Weapons we've {$TextFailure failed} to remove from %%target%%:"
     TRESOLVED_INTO                      = 6
     stringConstants(6)  = "` resolved into `"
     TTILDE_QUOTE                        = 7
