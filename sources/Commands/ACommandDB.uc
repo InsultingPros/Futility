@@ -152,6 +152,7 @@ protected function EPlayer PopPlayer(Database relevantDatabase)
 {
     local int i;
     local EPlayer result;
+
     if (queueWaitingListPlayers.length <= 0)    return none;
     if (queueWaitingListDatabases.length <= 0)  return none;
 
@@ -173,30 +174,31 @@ protected function EPlayer PopPlayer(Database relevantDatabase)
     return none;
 }
 
-protected function Executed(CallData result, EPlayer callerPlayer)
+protected function Executed(CallData arguments, EPlayer instigator)
 {
     local AcediaObject  valueToWrite;
     local DBPointerPair pair;
     local Text          subCommand;
-    subCommand = result.subCommandName;
+
+    subCommand = arguments.subCommandName;
     //  Try executing on of the operation that manage multiple databases
-    if (TryAPICallCommands(subCommand, callerPlayer, result.parameters)) {
+    if (TryAPICallCommands(subCommand, instigator, arguments.parameters)) {
         return;
     }
     //  If we have failed - it has got to be one of the operations on
     //  a single database
-    pair = TryLoadingDB(result.parameters.GetText(T(TDATABASE_LINK)));
+    pair = TryLoadingDB(arguments.parameters.GetText(T(TDATABASE_LINK)));
     if (pair.database == none)
     {
         callerConsole.WriteLine(T(TBAD_DBLINK));
         return;
     }
     //  Remember the last player we are making a query to and make that query
-    PushPlayer(callerPlayer, pair.database);
+    PushPlayer(instigator, pair.database);
     if (subCommand.StartsWith(T(TWRITE)))
     {
-        valueToWrite = result.parameters.GetItem(T(TJSON_VALUE));
-        if (result.options.HasKey(T(TINCREMENT)))
+        valueToWrite = arguments.parameters.GetItem(T(TJSON_VALUE));
+        if (arguments.options.HasKey(T(TINCREMENT)))
         {
             pair.database.IncrementData(pair.pointer, valueToWrite)
                 .connect = DisplayResponse;
@@ -225,7 +227,7 @@ protected function Executed(CallData result, EPlayer callerPlayer)
 //  Simple API calls
 private function bool TryAPICallCommands(
     BaseText            subCommand,
-    EPlayer             callerPlayer,
+    EPlayer             instigator,
     AssociativeArray    commandParameters)
 {
     if (subCommand.IsEmpty())
@@ -235,18 +237,18 @@ private function bool TryAPICallCommands(
     }
     else if (subCommand.Compare(T(TLIST)))
     {
-        ListDatabases(callerPlayer);
+        ListDatabases(instigator);
         return true;
     }
     else if (subCommand.Compare(T(TCREATE)))
     {
-        CreateDatabase( callerPlayer,
+        CreateDatabase( instigator,
                         commandParameters.GetText(T(TDATABASE_NAME)));
         return true;
     }
     else if (subCommand.Compare(T(TDELETE)))
     {
-        DeleteDatabase( callerPlayer,
+        DeleteDatabase( instigator,
                         commandParameters.GetText(T(TDATABASE_NAME)));
         return true;
     }
@@ -268,9 +270,9 @@ private function DBPointerPair TryLoadingDB(BaseText databaseLink)
     return result;
 }
 
-protected function CreateDatabase(EPlayer callerPlayer, Text databaseName)
+protected function CreateDatabase(EPlayer instigator, Text databaseName)
 {
-    if (callerPlayer == none) {
+    if (instigator == none) {
         return;
     }
     if (_.db.ExistsLocal(databaseName))
@@ -286,9 +288,9 @@ protected function CreateDatabase(EPlayer callerPlayer, Text databaseName)
     }
 }
 
-protected function DeleteDatabase(EPlayer callerPlayer, Text databaseName)
+protected function DeleteDatabase(EPlayer instigator, Text databaseName)
 {
-    if (callerPlayer == none) {
+    if (instigator == none) {
         return;
     }
     if (_.db.DeleteLocal(databaseName)) {
@@ -299,12 +301,13 @@ protected function DeleteDatabase(EPlayer callerPlayer, Text databaseName)
     }
 }
 
-protected function ListDatabases(EPlayer callerPlayer)
+protected function ListDatabases(EPlayer instigator)
 {
     local int           i;
     local array<Text>   availableDatabases;
     local ConsoleWriter console;
-    if (callerPlayer == none) {
+
+    if (instigator == none) {
         return;
     }
     availableDatabases = _.db.ListLocal();
@@ -322,23 +325,23 @@ protected function ListDatabases(EPlayer callerPlayer)
 }
 
 protected function OutputStatus(
-    EPlayer                 callerPlayer,
+    EPlayer                 instigator,
     Database.DBQueryResult  error)
 {
-    if (callerPlayer == none) {
+    if (instigator == none) {
         return;
     }
     if (error == DBR_Success) {
-        callerConsole.WriteLine(T(TQUERY_COMPLETED));
+        instigator.BorrowConsole().WriteLine(T(TQUERY_COMPLETED));
     }
     if (error == DBR_InvalidPointer) {
-        callerConsole.WriteLine(T(TQUERY_INVALID_POINTER));
+        instigator.BorrowConsole().WriteLine(T(TQUERY_INVALID_POINTER));
     }
     if (error == DBR_InvalidDatabase) {
-        callerConsole.WriteLine(T(TQUERY_INVALID_DB));
+        instigator.BorrowConsole().WriteLine(T(TQUERY_INVALID_DB));
     }
     if (error == DBR_InvalidData) {
-        callerConsole.WriteLine(T(TQUERY_INVALID_DATA));
+        instigator.BorrowConsole().WriteLine(T(TQUERY_INVALID_DATA));
     }
 }
 
@@ -348,17 +351,18 @@ protected function DisplayData(
     Database                source)
 {
     local Text          printedJSON;
-    local EPlayer       callerPlayer;
+    local EPlayer       instigator;
     local Collection    dataAsCollection;
-    callerPlayer = PopPlayer(source);
-    OutputStatus(callerPlayer, result);
-    if (callerPlayer != none && result == DBR_Success)
+
+    instigator = PopPlayer(source);
+    OutputStatus(instigator, result);
+    if (instigator != none && result == DBR_Success)
     {
         printedJSON = _.json.PrettyPrint(data).IntoText();
-        callerConsole.Write(printedJSON).Flush();
+        instigator.BorrowConsole().Write(printedJSON).Flush();
         _.memory.Free(printedJSON);
-        _.memory.Free(callerPlayer);
-        callerPlayer = none;
+        _.memory.Free(instigator);
+        instigator = none;
     }
     dataAsCollection = Collection(data);
     if (dataAsCollection != none) {
@@ -373,19 +377,20 @@ protected function DisplaySize(
     Database                source)
 {
     local Text      sizeAsText;
-    local EPlayer   callerPlayer;
-    callerPlayer = PopPlayer(source);
-    OutputStatus(callerPlayer, result);
-    if (callerPlayer != none && result == DBR_Success)
+    local EPlayer   instigator;
+
+    instigator = PopPlayer(source);
+    OutputStatus(instigator, result);
+    if (instigator != none && result == DBR_Success)
     {
         sizeAsText = _.text.FromInt(size);
-        callerConsole
+        instigator.BorrowConsole()
             .Write(T(TOBJECT_SIZE_IS))
             .Write(sizeAsText)
             .Flush();
         _.memory.Free(sizeAsText);
-        _.memory.Free(callerPlayer);
-        callerPlayer = none;
+        _.memory.Free(instigator);
+        instigator = none;
     }
 }
 
@@ -395,16 +400,17 @@ protected function DisplayKeys(
     Database                source)
 {
     local int           i;
-    local EPlayer       callerPlayer;
+    local EPlayer       instigator;
     local ConsoleWriter console;
-    callerPlayer = PopPlayer(source);
-    OutputStatus(callerPlayer, result);
+
+    instigator = PopPlayer(source);
+    OutputStatus(instigator, result);
     if (keys == none) {
         return;
     }
-    if (callerPlayer != none && result == DBR_Success)
+    if (instigator != none && result == DBR_Success)
     {
-        console = callerConsole;
+        console = instigator.BorrowConsole();
         console.Write(T(TOBJECT_KEYS_ARE));
         for (i = 0; i < keys.GetLength(); i += 1)
         {
@@ -414,8 +420,8 @@ protected function DisplayKeys(
             console.UseColor(_.color.jPropertyName).Write(keys.GetText(i));
         }
         console.Flush();
-        _.memory.Free(callerPlayer);
-        callerPlayer = none;
+        _.memory.Free(instigator);
+        instigator = none;
     }
     _.memory.Free(keys);
 }
@@ -424,10 +430,11 @@ protected function DisplayResponse(
     Database.DBQueryResult  result,
     Database                source)
 {
-    local EPlayer callerPlayer;
-    callerPlayer = PopPlayer(source);
-    OutputStatus(callerPlayer, result);
-    _.memory.Free(callerPlayer);
+    local EPlayer instigator;
+
+    instigator = PopPlayer(source);
+    OutputStatus(instigator, result);
+    _.memory.Free(instigator);
 }
 
 defaultproperties
