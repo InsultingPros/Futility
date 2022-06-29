@@ -22,6 +22,14 @@ class ACommandFeature extends Command;
 //  TODO: autoconf, newconf, deleteconf, setconf
 //  TODO: when displaying features - display which one is enabled
 
+var private ACommandFeature_Announcer announcer;
+
+protected function Finalizer()
+{
+    _.memory.Free(announcer);
+    super.Finalizer();
+}
+
 protected function BuildData(CommandDataBuilder builder)
 {
     builder.Name(P("feature")).Summary(P("Managing features."))
@@ -34,174 +42,116 @@ protected function BuildData(CommandDataBuilder builder)
     builder.SubCommand(P("disable"))
         .ParamText(P("feature"))
         .Describe(P("Disables specified <feature>."));
+    announcer = ACommandFeature_Announcer(
+        _.memory.Allocate(class'ACommandFeature_Announcer'));
 }
 
-protected function Executed(CallData result, EPlayer callerPlayer)
+protected function Executed(CallData arguments, EPlayer instigator)
 {
-    if (result.subCommandName.IsEmpty()) {
+    announcer.Setup(none, instigator, othersConsole);
+    if (arguments.subCommandName.IsEmpty()) {
         ShowAllFeatures();
     }
-    else if (result.subCommandName.Compare(P("enable")))
+    else if (arguments.subCommandName.Compare(P("enable")))
     {
-        TryEnableFeature(
-            callerPlayer,
-            result.parameters.GetText(P("feature")),
-            result.parameters.GetText(P("config")));
+        EnableFeature(
+            arguments.parameters.GetText(P("feature")),
+            arguments.parameters.GetText(P("config")));
     }
-    else if (result.subCommandName.Compare(P("disable"))) {
-        DisableFeature(callerPlayer, result.parameters.GetText(P("feature")));
+    else if (arguments.subCommandName.Compare(P("disable"))) {
+        DisableFeature(arguments.parameters.GetText(P("feature")));
     }
 }
 
-protected function TryEnableFeature(
-    EPlayer     callerPlayer,
-    BaseText    featureName,
-    BaseText    chosenConfig)
+protected function EnableFeature(BaseText featureName, BaseText configParameter)
 {
-    local Text                  oldConfig, newConfig;
-    local class<Feature>        featureClass;
-    local class<FeatureConfig>  configClass;
-    featureClass = LoadFeatureClass(featureName);
-    if (featureClass == none)   return;
-    configClass = featureClass.default.configClass;
-    if (configClass == none)    return;
+    local bool              wasEnabled;
+    local Text              oldConfig, newConfig;
+    local Feature           instance;
+    local class<Feature>    featureClass;
 
-    if (chosenConfig == none) {
-        newConfig = configClass.static.GetAutoEnabledConfig();
-    }
-    else if (!configClass.static.Exists(chosenConfig))
-    {
-        callerConsole
-            .Write(P("Specified config \""))
-            .Write(chosenConfig)
-            .WriteLine(F("\" {$TextFailure doesn't exist}"));
+    featureClass = LoadFeatureClass(featureName);
+    if (featureClass == none) {
         return;
+    }
+    wasEnabled = featureClass.static.IsEnabled();
+    oldConfig = featureClass.static.GetCurrentConfig();
+    newConfig = GetConfigFromParameter(configParameter, featureClass);
+    //  Already enabled with the same config!
+    if (oldConfig != none && oldConfig.Compare(newConfig, SCASE_INSENSITIVE))
+    {
+        announcer.AnnounceFailedAlreadyEnabled(featureClass, newConfig);
+        _.memory.Free(newConfig);
+        _.memory.Free(oldConfig);
+        return;
+    }
+    //  Try enabling and report the result
+    instance = featureClass.static.EnableMe(newConfig);
+    if (instance == none) {
+        announcer.AnnounceFailedCannotEnableFeature(featureClass, newConfig);
+    }
+    else if (wasEnabled) {
+        announcer.AnnounceSwappedConfig(featureClass, oldConfig, newConfig);
     }
     else {
-        newConfig = chosenConfig.Copy();
+        announcer.AnnounceEnabledFeature(featureClass, newConfig);
     }
-    if (newConfig == none)
-    {
-        callerConsole
-            .Write(F("{$TextFailue No config specified} and"
-                @ "{$TextFailure no auto-enabled config} exists for feature "))
-            .UseColorOnce(_.color.TextEmphasis)
-            .WriteLine(newConfig);
-         _.memory.Free(newConfig);
-        return;
-    }
-    oldConfig = featureClass.static.GetCurrentConfig();
-    if (oldConfig != none && oldConfig.Compare(chosenConfig, SCASE_INSENSITIVE))
-    {
-        callerConsole
-            .Write(P("Config "))
-            .Write(chosenConfig)
-            .WriteLine(P(" is already enabled"));
-        _.memory.Free(oldConfig);
-        _.memory.Free(newConfig);
-        return;
-    }
-    EnableFeature(
-        callerPlayer,
-        featureClass,
-        configClass,
-        newConfig,
-        chosenConfig == none);
     _.memory.Free(newConfig);
     _.memory.Free(oldConfig);
 }
 
-protected function EnableFeature(
-    EPlayer                 callerPlayer,
-    class<Feature>          featureClass,
-    class<FeatureConfig>    configClass,
-    BaseText                chosenConfig,
-    bool                    autoConfig)
+protected function DisableFeature(Text featureName)
 {
-    local bool      wasEnabled;
-    local Feature   instance;
-    local Text      featureName, callerName;
-    if (callerPlayer == none)   return;
-    if (featureClass == none)   return;
-    if (configClass == none)    return;
-
-    callerName = callerPlayer.GetName();
-    featureName = _.text.FromClass(featureClass);
-    wasEnabled = featureClass.static.IsEnabled();
-    instance = featureClass.static.EnableMe(chosenConfig);
-    if (instance == none)
-    {
-        callerConsole.Write(F("Something went {$TextFailure wrong},"
-            @ "{$TextFailure failed} to enabled feature"))
-            .UseColorOnce(_.color.TextEmphasis).WriteLine(featureName);
-    }
-    else if (wasEnabled)
-    {
-        callerConsole
-            .Write(P("Swapping config for the feature "))
-            .UseColorOnce(_.color.TextEmphasis).Write(featureName)
-            .Write(P(" to \"")).Write(chosenConfig).WriteLine(P("\""));
-        othersConsole
-            .Write(callerName)
-            .Write(P(" swapped config for the feature "))
-            .UseColorOnce(_.color.TextEmphasis).Write(featureName)
-            .Write(P(" to \"")).Write(chosenConfig).WriteLine(P("\""));
-    }
-    else
-    {
-        callerConsole
-            .Write(P("Enabling feature "))
-            .UseColorOnce(_.color.TextEmphasis).Write(featureName)
-            .Write(P(" with config \"")).Write(chosenConfig).WriteLine(P("\""));
-        othersConsole
-            .Write(callerName)
-            .Write(P(" enabled feature "))
-            .UseColorOnce(_.color.TextEmphasis).Write(featureName)
-            .Write(P(" with config \"")).Write(chosenConfig).WriteLine(P("\""));
-    }
-    _.memory.Free(callerName);
-    _.memory.Free(featureName);
-}
-
-protected function DisableFeature(EPlayer callerPlayer, Text featureName)
-{
-    local Text              playerName;
-    local Text              featureRealName;
-    local class<Feature>    featureClass;
+    local class<Feature> featureClass;
 
     featureClass = LoadFeatureClass(featureName);
-    if (featureClass == none)   return;
-    if (callerPlayer == none)   return;
-
-    featureRealName = _.text.FromClass(featureClass);
-    playerName      = callerPlayer.GetName();
+    if (featureClass == none) {
+        return;
+    }
     if (!featureClass.static.IsEnabled())
     {
-        callerConsole
-            .Write(P("Feature "))
-            .UseColorOnce(_.color.TextEmphasis).Write(featureRealName)
-            .WriteLine(F(" is already {$TextNegative disabled}"));
-        _.memory.Free(featureRealName);
-        _.memory.Free(playerName);
+        announcer.AnnounceFailedAlreadyDisabled(featureClass);
         return;
     }
     featureClass.static.DisableMe();
     //  It is possible that this command itself is destroyed after above command
     //  so do the check just in case
-    if (IsAllocated())
-    {
-        callerConsole
-                .Write(P("Feature "))
-                .UseColorOnce(_.color.TextEmphasis).Write(featureRealName)
-                .WriteLine(F(" is {$TextNegative disabled}"));
-        othersConsole
-                .Write(playerName)
-                .Write(F(" {$TextNegative disabled} feature "))
-                .UseColorOnce(_.color.TextEmphasis).WriteLine(featureRealName);
+    if (IsAllocated()) {
+        announcer.AnnounceDisabledFeature(featureClass);
     }
-    //  `_` might be gone here
-    __().memory.Free(featureRealName);
-    __().memory.Free(playerName);
+}
+
+protected function Text GetConfigFromParameter(
+    BaseText        configParameter,
+    class<Feature>  featureClass)
+{
+    local Text                  resolvedConfig;
+    local class<FeatureConfig>  configClass;
+
+    if (featureClass == none) {
+        return none;
+    }
+    configClass = featureClass.default.configClass;
+    if (configClass == none)
+    {
+        announcer.AnnounceFailedNoConfigClass(featureClass);
+        return none;
+    }
+    //  If config was specified - simply check that it exists
+    if (configParameter != none)
+    {
+        if (configClass.static.Exists(configParameter)) {
+            return configParameter.Copy();
+        }
+        announcer.AnnounceFailedConfigMissing(configParameter);
+        return none;
+    }
+    //  If it wasn't specified - try auto config instead
+    resolvedConfig = configClass.static.GetAutoEnabledConfig();
+    if (resolvedConfig == none) {
+        announcer.AnnounceFailedNoConfigProvided(featureClass);
+    }
+    return resolvedConfig;
 }
 
 protected function class<Feature> LoadFeatureClass(BaseText featureName)
@@ -218,12 +168,8 @@ protected function class<Feature> LoadFeatureClass(BaseText featureName)
         featureClassName = featureName.Copy();
     }
     featureClass = class<Feature>(_.memory.LoadClass(featureClassName));
-    if (featureClass == none)
-    {
-        callerConsole
-            .Write(F("{$TextFailure Failed} to load feature `"))
-            .Write(featureName)
-            .WriteLine(P("`"));
+    if (featureClass == none) {
+        announcer.AnnounceFailedToLoadFeatureClass(featureName);
     }
     _.memory.Free(featureClassName);
     return featureClass;
@@ -247,6 +193,7 @@ protected function ShowFeature(class<Feature> feature)
     local ReportTool            reportTool;
     local array<Text>           availableConfigs;
     local class<FeatureConfig>  configClass;
+
     if (feature == none) {
         return;
     }

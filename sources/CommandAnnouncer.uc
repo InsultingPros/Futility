@@ -129,22 +129,24 @@ public final function Setup(
     ConsoleWriter   newPublicConsole)
 {
     target = none;
+    _.memory.Free(targetName);
+    targetName = none;
     if (newTarget != none && newTarget.IsAllocated())
     {
         target = newTarget;
         targetLifeVersion = newTarget.GetLifeVersion();
-        _.memory.Free(targetName);
         targetName = target
             .GetName()
             .IntoMutableText()
             .ChangeDefaultColor(_.color.Gray);
     }
     instigator = none;
+    _.memory.Free(instigatorName);
+    instigatorName = none;
     if (newInstigator != none && newInstigator.IsAllocated())
     {
         instigator = newInstigator;
         instigatorLifeVersion = newInstigator.GetLifeVersion();
-        _.memory.Free(instigatorName);
         instigatorName = instigator
             .GetName()
             .IntoMutableText()
@@ -168,11 +170,11 @@ protected final function MakeAnnouncement(AnnouncementVariations variations)
     local ConsoleWriter instigatorConsole, targetConsole;
 
     if (!variations.initialized)    return;
-    if (!AreClassesValid())         return;
+    if (!ValidateClasses())         return;
 
     instigatorConsole   = _.console.For(instigator);
     targetConsole       = _.console.For(target);
-    if (instigator.SameAs(target))
+    if (target == none || instigator.SameAs(target))
     {
         //  If instigator is targeting himself, then there is no need for
         //  a separate announcement to target
@@ -218,24 +220,39 @@ protected final function array<TextTemplate> MakeArray(
 {
     local array<TextTemplate> result;
 
-    result[result.length] = variations.toSelfReport;
-    result[result.length] = variations.toSelfPublic;
-    result[result.length] = variations.toOtherReport;
-    result[result.length] = variations.toOtherPrivate;
-    result[result.length] = variations.toOtherPublic;
+    if (variations.toSelfReport != none) {
+        result[result.length] = variations.toSelfReport;
+    }
+    if (variations.toSelfPublic != none) {
+        result[result.length] = variations.toSelfPublic;
+    }
+    if (variations.toOtherReport != none) {
+        result[result.length] = variations.toOtherReport;
+    }
+    if (variations.toOtherPrivate != none) {
+        result[result.length] = variations.toOtherPrivate;
+    }
+    if (variations.toOtherPublic != none) {
+        result[result.length] = variations.toOtherPublic;
+    }
     return result;
 }
 
-private final function bool AreClassesValid()
+private final function bool ValidateClasses()
 {
     if (instigator == none)                                     return false;
-    if (target == none)                                         return false;
     if (publicConsole == none)                                  return false;
     if (instigator.GetLifeVersion() != instigatorLifeVersion)   return false;
-    if (target.GetLifeVersion() != targetLifeVersion)           return false;
     if (!instigator.IsExistent())                               return false;
-    if (!target.IsExistent())                                   return false;
 
+    if (target != none)
+    {
+        if (    target.GetLifeVersion() != targetLifeVersion
+            ||  !target.IsExistent())
+        {
+            target = none;
+        }
+    }
     if (publicConsole.GetLifeVersion() != publicConsoleLifeVersion) {
         return false;
     }
