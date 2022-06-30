@@ -19,6 +19,8 @@
  */
 class ACommandTrader extends Command;
 
+var private ACommandTrader_Announcer announcer;
+
 var protected const int TLIST, TOPEN, TCLOSE, TENABLE, TDISABLE, TAUTO_OPEN;
 var protected const int TTRADER, TTRADERS, TALL, TAUTO_OPEN_QUESTION, TQUOTE;
 var protected const int TAUTO_OPEN_FLAG, TDISABLED_FLAG, TUNKNOWN_TRADERS;
@@ -26,8 +28,13 @@ var protected const int TLIST_TRADERS, TCOMMA_SPACE, TSELECTED_FLAG;
 var protected const int TPARENTHESIS_OPEN, TPARENTHESIS_CLOSE;
 var protected const int TSELECT, TIGNORE_DOORS, TBOOT, TTRADER_TIME, TTIME;
 var protected const int TIGNORE_PLAYERS, TPAUSE, TUNPAUSE, TCANNOT_PARSE_PARAM;
-var protected const int TCLOSEST, TSPACE, TSELECTED_TRADER, TSELECTED_NO_TRADER;
-var protected const int TSELECT_NO_CHANGE;
+var protected const int TCLOSEST, TSPACE;
+
+protected function Finalizer()
+{
+    _.memory.Free(announcer);
+    super.Finalizer();
+}
 
 protected function BuildData(CommandDataBuilder builder)
 {
@@ -89,39 +96,58 @@ protected function BuildData(CommandDataBuilder builder)
             @ "this command to leave players inside. However they can still be"
             @ "booted out at the end of trading time. Also it is impossible to"
             @ "disable the trader and not boot players inside it."));
+    announcer = ACommandTrader_Announcer(
+        _.memory.Allocate(class'ACommandTrader_Announcer'));
 }
 
-protected function Executed(CallData result, EPlayer callerPlayer)
+protected function Executed(CallData arguments, EPlayer instigator)
 {
-    if (result.subCommandName.IsEmpty()) {
-        _.kf.trading.SetTradingStatus(result.parameters.GetBool(T(TENABLE)));
+    local bool newTradingStatus;
+
+    announcer.Setup(none, instigator, othersConsole);
+    if (arguments.subCommandName.IsEmpty())
+    {
+        newTradingStatus = arguments.parameters.GetBool(T(TENABLE));
+        if (    arguments.parameters.GetBool(T(TENABLE))
+            ==  _.kf.trading.IsTradingActive())
+        {
+            announcer.AnnounceTradingNoChange();
+        }
+        _.kf.trading.SetTradingStatus(newTradingStatus);
+        if (newTradingStatus) {
+            announcer.AnnounceActivatedTrading();
+        }
+        else {
+            announcer.AnnounceDeactivatedTrading();
+        }
     }
-    else if (result.subCommandName.Compare(T(TLIST))) {
-        ListTradersFor(callerPlayer);
+    else if (arguments.subCommandName.Compare(T(TLIST))) {
+        ListTradersFor(instigator);
     }
-    else if (result.subCommandName.Compare(T(TTIME), SCASE_INSENSITIVE)) {
-        HandleTraderTime(result);
+    else if (arguments.subCommandName.Compare(T(TTIME), SCASE_INSENSITIVE)) {
+        HandleTraderTime(arguments);
     }
-    else if (result.subCommandName.Compare(T(TOPEN), SCASE_INSENSITIVE)) {
-        SetTradersOpen(true, result, callerPlayer);
+    else if (arguments.subCommandName.Compare(T(TOPEN), SCASE_INSENSITIVE)) {
+        SetTradersOpen(true, arguments, instigator);
     }
-    else if (result.subCommandName.Compare(T(TCLOSE), SCASE_INSENSITIVE)) {
-        SetTradersOpen(false, result, callerPlayer);
+    else if (arguments.subCommandName.Compare(T(TCLOSE), SCASE_INSENSITIVE)) {
+        SetTradersOpen(false, arguments, instigator);
     }
-    else if (result.subCommandName.Compare(T(TSELECT), SCASE_INSENSITIVE)) {
-        SelectTrader(result, callerPlayer);
+    else if (arguments.subCommandName.Compare(T(TSELECT), SCASE_INSENSITIVE)) {
+        SelectTrader(arguments, instigator);
     }
-    else if (result.subCommandName.Compare(T(TBOOT), SCASE_INSENSITIVE)) {
-        BootFromTraders(result, callerPlayer);
+    else if (arguments.subCommandName.Compare(T(TBOOT), SCASE_INSENSITIVE)) {
+        BootFromTraders(arguments, instigator);
     }
-    else if (result.subCommandName.Compare(T(TENABLE), SCASE_INSENSITIVE)) {
-        SetTradersEnabled(true, result, callerPlayer);
+    else if (arguments.subCommandName.Compare(T(TENABLE), SCASE_INSENSITIVE)) {
+        SetTradersEnabled(true, arguments, instigator);
     }
-    else if (result.subCommandName.Compare(T(TDISABLE), SCASE_INSENSITIVE)) {
-        SetTradersEnabled(false, result, callerPlayer);
+    else if (arguments.subCommandName.Compare(T(TDISABLE), SCASE_INSENSITIVE)) {
+        SetTradersEnabled(false, arguments, instigator);
     }
-    else if (result.subCommandName.Compare(T(TAUTO_OPEN), SCASE_INSENSITIVE)) {
-        SetTradersAutoOpen(result, callerPlayer);
+    else if (arguments.subCommandName.Compare(T(TAUTO_OPEN), SCASE_INSENSITIVE))
+    {
+        SetTradersAutoOpen(arguments, instigator);
     }
 }
 
@@ -158,17 +184,25 @@ protected function HandleTraderTime(CallData result)
     parameter = result.parameters.GetText(T(TTRADER_TIME));
     if (parameter.Compare(T(TPAUSE), SCASE_INSENSITIVE))
     {
-        _.kf.trading.SetCountDownPause(true);
+        if (!_.kf.trading.IsCountDownPaused()) {
+            announcer.AnnouncePausedTime();
+        }
+        _.kf.trading.SetCountdownPause(true);
         return;
     }
     else if (parameter.Compare(T(TUNPAUSE), SCASE_INSENSITIVE))
     {
-        _.kf.trading.SetCountDownPause(false);
+        if (_.kf.trading.IsCountDownPaused()) {
+            announcer.AnnounceUnpausedTime();
+        }
+        _.kf.trading.SetCountdownPause(false);
         return;
     }
     parser = _.text.Parse(parameter);
-    if (parser.MInteger(countDownValue).Ok()) {
-        _.kf.trading.SetCountDown(countDownValue);
+    if (parser.MInteger(countDownValue).Ok())
+    {
+        _.kf.trading.SetCountdown(countDownValue);
+        announcer.AnnounceChangedCountdown(_.kf.trading.GetCountdown());
     }
     else
     {
@@ -190,17 +224,34 @@ protected function SetTradersOpen(
     local int               i;
     local bool              needToBootPlayers;
     local array<ETrader>    selectedTraders;
+    local Text              nextTraderName;
+    local ListBuilder       affectedTraders;
+
+    affectedTraders = ListBuilder(_.memory.Allocate(class'ListBuilder'));
     selectedTraders = GetTradersArray(result, callerPlayer);
     needToBootPlayers = !doOpen
         && !result.options.HasKey(T(TIGNORE_PLAYERS));
     for (i = 0; i < selectedTraders.length; i += 1)
     {
+        if (selectedTraders[i].IsOpen() != doOpen)
+        {
+            nextTraderName = selectedTraders[i].GetName();
+            affectedTraders.Item(nextTraderName);
+            _.memory.Free(nextTraderName);
+        }
         selectedTraders[i].SetOpen(doOpen);
         if (needToBootPlayers) {
             selectedTraders[i].BootPlayers();
         }
     }
+    if (doOpen) {
+        announcer.AnnounceTradersOpened(affectedTraders);
+    }
+    else {
+        announcer.AnnounceTradersClosed(affectedTraders);
+    }
     _.memory.FreeMany(selectedTraders);
+    _.memory.Free(affectedTraders);
 }
 
 protected function bool AreTradersSame(ETrader trader1, ETrader trader2)
@@ -214,8 +265,9 @@ protected function bool AreTradersSame(ETrader trader1, ETrader trader2)
 
 protected function SelectTrader(CallData result, EPlayer callerPlayer)
 {
-    local Text      specifiedTraderName, newlySelectedTraderName;
+    local Text      specifiedTraderName;
     local ETrader   previouslySelectedTrader, newlySelectedTrader;
+
     previouslySelectedTrader = _.kf.trading.GetSelectedTrader();
     specifiedTraderName = result.parameters.GetText(T(TTRADER));
     //  Try to get trader user want to select:
@@ -240,17 +292,13 @@ protected function SelectTrader(CallData result, EPlayer callerPlayer)
     _.kf.trading.SelectTrader(newlySelectedTrader);
     //  Report change
     if (AreTradersSame(previouslySelectedTrader, newlySelectedTrader)) {
-        callerConsole.WriteLine(T(TSELECT_NO_CHANGE));
+        announcer.AnnounceSelectedSameTrader();
     }
     else if (newlySelectedTrader == none) {
-        callerConsole.WriteLine(T(TSELECTED_NO_TRADER));
+        announcer.AnnounceSelectedNoTrader();
     }
-    else
-    {
-        newlySelectedTraderName = newlySelectedTrader.GetName();
-        callerConsole.Flush().Write(T(TSELECTED_TRADER))
-            .WriteLine(newlySelectedTraderName);
-        _.memory.Free(newlySelectedTraderName);
+    else {
+        announcer.AnnounceSelectedTrader(newlySelectedTrader);
     }
     _.memory.Free(previouslySelectedTrader);
     _.memory.Free(newlySelectedTrader);
@@ -288,14 +336,24 @@ protected function BootFromTraders(CallData result, EPlayer callerPlayer)
 {
     local int               i;
     local array<ETrader>    selectedTraders;
+    local Text              nextTraderName;
+    local ListBuilder       affectedTraderList;
+
+    affectedTraderList = ListBuilder(_.memory.Allocate(class'ListBuilder'));
     selectedTraders = GetTradersArray(result, callerPlayer);
     if (selectedTraders.length <= 0) {
         selectedTraders = _.kf.trading.GetTraders();
     }
-    for (i = 0; i < selectedTraders.length; i += 1) {
+    for (i = 0; i < selectedTraders.length; i += 1)
+    {
+        nextTraderName = selectedTraders[i].GetName();
+        affectedTraderList.Item(nextTraderName);
         selectedTraders[i].BootPlayers();
+        _.memory.Free(nextTraderName);
     }
+    announcer.AnnounceBootedPlayers(affectedTraderList);
     _.memory.FreeMany(selectedTraders);
+    _.memory.Free(affectedTraderList);
 }
 
 protected function SetTradersEnabled(
@@ -305,11 +363,29 @@ protected function SetTradersEnabled(
 {
     local int               i;
     local array<ETrader>    selectedTraders;
+    local Text              nextTraderName;
+    local ListBuilder       affectedTraderList;
+
+    affectedTraderList = ListBuilder(_.memory.Allocate(class'ListBuilder'));
     selectedTraders = GetTradersArray(result, callerPlayer);
-    for (i = 0; i < selectedTraders.length; i += 1) {
+    for (i = 0; i < selectedTraders.length; i += 1)
+    {
+        if (doEnable != selectedTraders[i].IsEnabled())
+        {
+            nextTraderName = selectedTraders[i].GetName();
+            affectedTraderList.Item(nextTraderName);
+            _.memory.Free(nextTraderName);
+        }
         selectedTraders[i].SetEnabled(doEnable);
     }
+    if (doEnable) {
+        announcer.AnnounceEnabledTraders(affectedTraderList);
+    }
+    else {
+        announcer.AnnounceDisabledTraders(affectedTraderList);
+    }
     _.memory.FreeMany(selectedTraders);
+    _.memory.Free(affectedTraderList);
 }
 
 protected function SetTradersAutoOpen(CallData result, EPlayer callerPlayer)
@@ -317,12 +393,30 @@ protected function SetTradersAutoOpen(CallData result, EPlayer callerPlayer)
     local int               i;
     local bool              doAutoOpen;
     local array<ETrader>    selectedTraders;
+    local Text              nextTraderName;
+    local ListBuilder       affectedTraderList;
+
+    affectedTraderList = ListBuilder(_.memory.Allocate(class'ListBuilder'));
     doAutoOpen = result.parameters.GetBool(T(TAUTO_OPEN_QUESTION));
     selectedTraders = GetTradersArray(result, callerPlayer);
-    for (i = 0; i < selectedTraders.length; i += 1) {
+    for (i = 0; i < selectedTraders.length; i += 1)
+    {
+        if (doAutoOpen != selectedTraders[i].IsAutoOpen())
+        {
+            nextTraderName = selectedTraders[i].GetName();
+            affectedTraderList.Item(nextTraderName);
+            _.memory.Free(nextTraderName);
+        }
         selectedTraders[i].SetAutoOpen(doAutoOpen);
     }
+    if (doAutoOpen) {
+        announcer.AnnounceAutoOpenTraders(affectedTraderList);
+    }
+    else {
+        announcer.AnnounceDoNotAutoOpenTraders(affectedTraderList);
+    }
     _.memory.FreeMany(selectedTraders);
+    _.memory.Free(affectedTraderList);
 }
 
 //  Reads traders specified for the command (if any).
@@ -581,10 +675,4 @@ defaultproperties
     stringConstants(28) = "closest"
     TSPACE              = 29
     stringConstants(29) = " "
-    TSELECTED_TRADER    = 30
-    stringConstants(30) = "{$TextPositive Selected trader} "
-    TSELECTED_NO_TRADER = 31
-    stringConstants(31) = "All traders were {$TextPositive deselected}"
-    TSELECT_NO_CHANGE   = 32
-    stringConstants(32) = "No changes were made as a result of {$TextEmphasis select} command"
 }
