@@ -90,7 +90,7 @@ protected function BuildData(CommandDataBuilder builder)
             @ "booted out at the end of trading time. Also it is impossible to"
             @ "disable the trader and not boot players inside it."));
 }
-//TODO: trader select -c does not work properly
+
 protected function Executed(CallData result, EPlayer callerPlayer)
 {
     if (result.subCommandName.IsEmpty()) {
