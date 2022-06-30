@@ -63,6 +63,17 @@ protected function Finalizer()
 }
 
 /**
+ *  Checks if caller `ListBuilder` already has any items added.
+ *
+ *  @return `true` if caller `ListBuilder` doesn't have any items added and
+ *      `false` if it has at least one.
+ */
+public final function bool IsEmpty()
+{
+    return (collectedItems.length <= 0);
+}
+
+/**
  *  Adds new `item` to the current report.
  *
  *  @param  item    Text to be included into the report as an item.
@@ -206,8 +217,7 @@ public final function MutableText IntoMutableText()
 
 /**
  *  Forgets all items or comments specified for the caller `ListBuilder` so far,
- *  allowing to start forming a new report. Does not reset template header,
- *  specified in the `Initialize()` method.
+ *  allowing to start forming a new report.
  *
  *  @return Reference to the caller `ListBuilder` to allow for method chaining.
  */

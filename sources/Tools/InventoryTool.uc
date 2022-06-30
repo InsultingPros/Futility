@@ -67,14 +67,11 @@ var private TextTemplate templateItemsAdded, templateItemsRemoved;
 var private TextTemplate templateItemsAddedVerbose, templateItemsRemovedVerbose;
 var private TextTemplate templateAdditionFailed, templateRemovalFailed;
 
-var const int TINSTIGATOR, TTARGET;
-var const int TITEMS_REMOVED_MESSAGE, TITEMS_REMOVED_VERBOSE_MESSAGE;
-var const int TITEMS_ADDITION_FAILED_MESSAGE, TITEMS_REMOVAL_FAILED_MESSAGE;
-var const int TRESOLVED_INTO, TTILDE_QUOTE, TFAULTY_INVENTORY_IMPLEMENTATION;
+var const int TINSTIGATOR, TTARGET, TRESOLVED_INTO, TTILDE_QUOTE;
 var const int TITEM_MISSING, TITEM_NOT_REMOVABLE, TUNKNOWN, TVISIBLE;
 var const int TDISPLAYING_INVENTORY, THEADER_COLON, TDOT_SPACE, TCOLON_SPACE;
 var const int TCOMMA_SPACE, TSPACE, TOUT_OF, THIDDEN_ITEMS, TDOLLAR, TYOU;
-var const int TYOURSELF, TTHEMSELVES;
+var const int TTHEMSELVES, TFAULTY_INVENTORY_IMPLEMENTATION;
 
 public static function StaticConstructor()
 {
@@ -85,10 +82,10 @@ public static function StaticConstructor()
         "%%instigator%% {$TextPositive added} following weapons to"
         @ "%%target%%: ");
     default.templateItemsRemoved = __().text.MakeTemplate_S(
-        "Weapons {$TextPositive added} to %%target%%: ");
-    default.templateItemsAddedVerbose = __().text.MakeTemplate_S(
         "%%instigator%% {$TextNegative removed} following weapons from"
         @ "%%target%%: ");
+    default.templateItemsAddedVerbose = __().text.MakeTemplate_S(
+        "Weapons {$TextPositive added} to %%target%%: ");
     default.templateItemsRemovedVerbose = __().text.MakeTemplate_S(
         "Weapons {$TextNegative removed} from %%target%%: ");
     default.templateAdditionFailed = __().text.MakeTemplate_S(
@@ -491,6 +488,52 @@ public function RemoveEquippedItems(
 }
 
 /**
+ *  Tells `InventoryTool` which player is responsible for the changes it is
+ *  reporting. This information is used to choose the phrasing of the reported
+ *  messages.
+ *
+ *  @param  instigator  Player that supposedly requested all the changes done by
+ *      the calller `InventoryTool`.
+ */
+public final function SetupReportInstigator(EPlayer instigator)
+{
+    local MutableText instigatorName, targetName;
+
+    if (TargetPlayerIsInvalid())    return;
+    if (instigator == none)         return;
+
+    instigatorName = ColorNickname(instigator.GetName());
+    if (!targetPlayer.SameAs(instigator)) {
+        targetName = ColorNickname(targetPlayer.GetName());
+    }
+    else {
+        targetName = T(TYOU).MutableCopy();
+    }
+    //  For instigator
+    default.templateItemsAdded.Reset().TextArg(T(TINSTIGATOR), instigatorName);
+    default.templateItemsRemoved
+        .Reset()
+        .TextArg(T(TINSTIGATOR), instigatorName);
+    //  For everybody else
+    default.templateAdditionFailed.Reset().TextArg(T(TTARGET), targetName);
+    default.templateRemovalFailed.Reset().TextArg(T(TTARGET), targetName);
+    default.templateItemsAddedVerbose.Reset().TextArg(T(TTARGET), targetName);
+    default.templateItemsRemovedVerbose.Reset().TextArg(T(TTARGET), targetName);
+    _.memory.Free(instigatorName);
+    _.memory.Free(targetName);
+}
+
+private final function MutableText ColorNickname(/* take */ BaseText nickname)
+{
+    if (nickname == none) {
+        return none;
+    }
+    return nickname
+        .IntoMutableText()
+        .ChangeDefaultColor(_.color.Gray);
+}
+
+/**
  *  Reports changes made to the player's inventory so far.
  *
  *  Ability to provide this reports is pretty much the main reason for
@@ -505,79 +548,58 @@ public function RemoveEquippedItems(
  *      be reported.
  */
 public final function ReportChanges(
-    EPlayer                 blamedPlayer,
+    EPlayer                 instigator,
     ConsoleWriter           writer,
     InventoryReportTarget   reportTarget)
 {
-    local Text blamedName, targetName;
-
-    if (TargetPlayerIsInvalid())    return;
-    if (blamedPlayer == none)       return;
-
-    blamedName = blamedPlayer.GetName();
-    if (!targetPlayer.SameAs(blamedPlayer)) {
-        targetName = targetPlayer.GetName();
+    if (TargetPlayerIsInvalid()) {
+        return;
     }
-    else
+    if (reportTarget != IRT_Instigator)
     {
-        if (reportTarget == IRT_Instigator) {
-            targetName = T(TYOURSELF).Copy();
-        }
-        else if (reportTarget == IRT_Target) {
-            targetName = T(TYOU).Copy();
-        }
-        else {
-            targetName = T(TTHEMSELVES).Copy();
-        }
-    }
-    default.templateItemsAdded
-        .TextArg(T(TINSTIGATOR), blamedName)
-        .TextArg(T(TTARGET), targetName);
-    default.templateItemsRemoved
-        .TextArg(T(TINSTIGATOR), blamedName)
-        .TextArg(T(TTARGET), targetName);
-    if (reportTarget == IRT_Others)
-    {
-        ReportWeaponList(writer, default.templateItemsAdded, itemsAdded);
+        SwapTargetNameInTemplates(instigator, reportTarget);
         ReportWeaponList(writer, default.templateItemsRemoved, itemsRemoved);
-    }
-    else if (reportTarget == IRT_Target)
-    {
         ReportWeaponList(writer, default.templateItemsAdded, itemsAdded);
-        ReportWeaponList(writer, default.templateItemsRemoved, itemsRemoved);
+        return;
     }
-    else if (reportTarget == IRT_Instigator)
-    {
-        default.templateItemsAddedVerbose
-            .TextArg(T(TINSTIGATOR), blamedName)
-            .TextArg(T(TTARGET), targetName);
-        default.templateItemsRemovedVerbose
-            .TextArg(T(TINSTIGATOR), blamedName)
-            .TextArg(T(TTARGET), targetName);
-        default.templateAdditionFailed
-            .TextArg(T(TINSTIGATOR), blamedName)
-            .TextArg(T(TTARGET), targetName);
-        default.templateremovalFailed
-            .TextArg(T(TINSTIGATOR), blamedName)
-            .TextArg(T(TTARGET), targetName);
-        ReportWeaponList(
-            writer,
-            default.templateItemsAddedVerbose,
-            itemsAddedPrivate);
-        ReportWeaponList(
-            writer,
-            default.templateItemsRemovedVerbose,
-            itemsRemovedPrivate);
-        ReportWeaponList(
-            writer,
-            default.templateAdditionFailed,
-            itemsAdditionFailed);
-        ReportWeaponList(
-            writer,
-            default.templateremovalFailed,
-            itemsRemovalFailed);
+    ReportWeaponList(
+        writer,
+        default.templateItemsRemovedVerbose,
+        itemsRemovedPrivate);
+    ReportWeaponList(
+        writer,
+        default.templateRemovalFailed,
+        itemsRemovalFailed);
+    ReportWeaponList(
+        writer,
+        default.templateItemsAddedVerbose,
+        itemsAddedPrivate);
+    ReportWeaponList(
+        writer,
+        default.templateAdditionFailed,
+        itemsAdditionFailed);
+}
+
+private final function SwapTargetNameInTemplates(
+    EPlayer                 instigator,
+    InventoryReportTarget   reportTarget)
+{
+    local MutableText targetName;
+
+    if (TargetPlayerIsInvalid()) {
+        return;
     }
-    _.memory.Free(blamedName);
+    if (!targetPlayer.SameAs(instigator)) {
+        targetName = ColorNickname(targetPlayer.GetName());
+    }
+    else if (reportTarget == IRT_Target) {
+        targetName = T(TYOU).MutableCopy();
+    }
+    else {
+        targetName = T(TTHEMSELVES).MutableCopy();
+    }
+    default.templateItemsAdded.TextArg(T(TTARGET), targetName);
+    default.templateItemsRemoved.TextArg(T(TTARGET), targetName);
     _.memory.Free(targetName);
 }
 
@@ -588,9 +610,10 @@ private final function ReportWeaponList(
 {
     local MutableText output;
 
-    if (writer == none) {
-        return;
-    }
+    if (writer == none)     return;
+    if (builder == none)    return;
+    if (builder.IsEmpty())  return;
+
     if (header != none)
     {
         output = header.CollectFormattedM();
@@ -598,20 +621,12 @@ private final function ReportWeaponList(
         _.memory.Free(output);
         output = none;
     }
-    if (builder != none) {
-        output = builder.GetMutable();
-    }
+    output = builder.GetMutable();
     writer.WriteLine(output);
     _.memory.Free(output);
 }
 
-/*    itemsAdded.Initialize(T(TITEMS_ADDED_MESSAGE));
-    itemsRemoved.Initialize(T(TITEMS_REMOVED_MESSAGE));
-    itemsAddedPrivate.Initialize(T(TITEMS_ADDED_VEROBSE_MESSAGE));
-    itemsRemovedPrivate.Initialize(T(TITEMS_REMOVED_VERBOSE_MESSAGE));
-    itemsAdditionFailed.Initialize(T(TITEMS_ADDITION_FAILED_MESSAGE));
-    itemsRemovalFailed.Initialize(T(TITEMS_REMOVAL_FAILED_MESSAGE)); */
-
+//  TODO: Use `ListBuilder` for the below method?
 /**
  *  Command that outputs summary of the player's inventory.
  *
@@ -738,56 +753,44 @@ private final function AppendAmmoInstanceInfo(MutableText builder, EAmmo ammo)
 
 defaultproperties
 {
-    //  TODO remove old constants
-    //  TODO refactor `ReportChanges()`
     TINSTIGATOR                         = 0
-    stringConstants(0)  = "%%instigator%%"
+    stringConstants(0)  = "instigator"
     TTARGET                             = 1
-    stringConstants(1)  = "%%target%%"
-    TITEMS_REMOVED_MESSAGE              = 2
-    stringConstants(2)  = "%%instigator%% {$TextNegative removed} following weapons from %%target%%:"
-    TITEMS_REMOVED_VERBOSE_MESSAGE      = 3
-    stringConstants(3)  = "Weapons {$TextNegative removed} from %%target%%:"
-    TITEMS_ADDITION_FAILED_MESSAGE      = 4
-    stringConstants(4)  = "Weapons we've {$TextFailure failed} to add to %%target%%:"
-    TITEMS_REMOVAL_FAILED_MESSAGE       = 5
-    stringConstants(5)  = "Weapons we've {$TextFailure failed} to remove from %%target%%:"
-    TRESOLVED_INTO                      = 6
-    stringConstants(6)  = "` resolved into `"
-    TTILDE_QUOTE                        = 7
-    stringConstants(7)  = "`"
-    TFAULTY_INVENTORY_IMPLEMENTATION    = 8
-    stringConstants(8)  = "faulty inventory implementation"
-    TITEM_MISSING                       = 9
-    stringConstants(9)  = "item missing"
-    TITEM_NOT_REMOVABLE                 = 10
-    stringConstants(10) = "item not removable"
-    TUNKNOWN                            = 11
-    stringConstants(11) = "unknown"
-    TVISIBLE                            = 12
-    stringConstants(12) = "visible"
-    TDISPLAYING_INVENTORY               = 13
-    stringConstants(13) = "{$TextHeader Displaying inventory for player }"
-    THEADER_COLON                       = 14
-    stringConstants(14) = "{$TextHeader :}"
-    TDOT_SPACE                          = 15
-    stringConstants(15) = ". "
-    TCOLON_SPACE                        = 16
-    stringConstants(16) = ": "
-    TCOMMA_SPACE                        = 17
-    stringConstants(17) = ", "
-    TSPACE                              = 18
-    stringConstants(18) = " "
-    TOUT_OF                             = 19
-    stringConstants(19) = " out of "
-    THIDDEN_ITEMS                       = 20
-    stringConstants(20) = "{$TextSubHeader Hidden items:}"
-    TDOLLAR                             = 21
-    stringConstants(21) = "$"
-    TYOU                                = 22
-    stringConstants(22) = "you"
-    TYOURSELF                           = 23
-    stringConstants(23) = "yourself"
-    TTHEMSELVES                         = 24
-    stringConstants(24) = "themselves"
+    stringConstants(1)  = "target"
+    TRESOLVED_INTO                      = 2
+    stringConstants(2)  = "` resolved into `"
+    TTILDE_QUOTE                        = 3
+    stringConstants(3)  = "`"
+    TFAULTY_INVENTORY_IMPLEMENTATION    = 4
+    stringConstants(4)  = "faulty inventory implementation"
+    TITEM_MISSING                       = 5
+    stringConstants(5)  = "item missing"
+    TITEM_NOT_REMOVABLE                 = 6
+    stringConstants(6)  = "item not removable"
+    TUNKNOWN                            = 7
+    stringConstants(7)  = "unknown"
+    TVISIBLE                            = 8
+    stringConstants(8)  = "visible"
+    TDISPLAYING_INVENTORY               = 9
+    stringConstants(9)  = "{$TextHeader Displaying inventory for player }"
+    THEADER_COLON                       = 10
+    stringConstants(10) = "{$TextHeader :}"
+    TDOT_SPACE                          = 11
+    stringConstants(11) = ". "
+    TCOLON_SPACE                        = 12
+    stringConstants(12) = ": "
+    TCOMMA_SPACE                        = 13
+    stringConstants(13) = ", "
+    TSPACE                              = 14
+    stringConstants(14) = " "
+    TOUT_OF                             = 15
+    stringConstants(15) = " out of "
+    THIDDEN_ITEMS                       = 16
+    stringConstants(16) = "{$TextSubHeader Hidden items:}"
+    TDOLLAR                             = 17
+    stringConstants(17) = "$"
+    TYOU                                = 18
+    stringConstants(18) = "you"
+    TTHEMSELVES                         = 19
+    stringConstants(19) = "themselves"
 }

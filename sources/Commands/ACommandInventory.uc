@@ -92,38 +92,40 @@ protected function BuildData(CommandDataBuilder builder)
 }
 
 protected function ExecutedFor(
-    EPlayer     player,
-    CallData    result,
-    EPlayer     callerPlayer)
+    EPlayer     target,
+    CallData    arguments,
+    EPlayer     instigator)
 {
     local InventoryTool tool;
     local DynamicArray  itemsArray, specifiedLists;
-    LoadUserFlags(result.options);
-    tool = class'InventoryTool'.static.CreateFor(player);
+    LoadUserFlags(arguments.options);
+    tool = class'InventoryTool'.static.CreateFor(target);
     if (tool == none) {
         return;
     }
-    itemsArray = result.parameters.GetDynamicArray(T(TITEMS));
-    specifiedLists = result.options.GetDynamicArrayBy(P("/list/lists names"));
-    if (result.subCommandName.IsEmpty()) {
+    itemsArray      = arguments.parameters.GetDynamicArray(T(TITEMS));
+    specifiedLists  = arguments.options
+        .GetDynamicArrayBy(P("/list/lists names"));
+    if (arguments.subCommandName.IsEmpty()) {
         tool.ReportInventory(callerConsole, flagHidden);
     }
-    else if (result.subCommandName.Compare(T(TADD))) {
+    else if (arguments.subCommandName.Compare(T(TADD))) {
         SubCommandAdd(tool, itemsArray, specifiedLists);
     }
-    else if (result.subCommandName.Compare(T(TREMOVE))) {
+    else if (arguments.subCommandName.Compare(T(TREMOVE))) {
         SubCommandRemove(tool, itemsArray, specifiedLists);
     }
-    else if (result.subCommandName.Compare(T(TSET)))
+    else if (arguments.subCommandName.Compare(T(TSET)))
     {
         tool.RemoveAllItems(flagKeep, flagForce, flagHidden);
         SubCommandAdd(tool, itemsArray, specifiedLists);
     }
-    if (!callerPlayer.SameAs(player)) {
-        tool.ReportChanges(callerPlayer, targetConsole, IRT_Target);
+    tool.SetupReportInstigator(instigator);
+    if (!instigator.SameAs(target)) {
+        tool.ReportChanges(instigator, targetConsole, IRT_Target);
     }
-    tool.ReportChanges(callerPlayer, callerConsole, IRT_Instigator);
-    tool.ReportChanges(callerPlayer, othersConsole, IRT_Others);
+    tool.ReportChanges(instigator, callerConsole, IRT_Instigator);
+    tool.ReportChanges(instigator, othersConsole, IRT_Others);
     _.memory.Free(tool);
 }
 
