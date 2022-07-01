@@ -200,9 +200,9 @@ public final function AnnounceTradersClosed(ListBuilder traderList)
     {
         tradersClosed.initialized = true;
         tradersClosed.toSelfReport = _.text.MakeTemplate_S(
-            "{$TextPositive Closed} following traders: %1");
+            "{$TextNegative Closed} following traders: %1");
         tradersClosed.toSelfPublic = _.text.MakeTemplate_S(
-            "%%instigator%% {$TextPositive closed} following traders: %1");
+            "%%instigator%% {$TextNegative closed} following traders: %1");
     }
     traderListAsText = traderList.GetMutable();
     templates = MakeArray(tradersClosed);
