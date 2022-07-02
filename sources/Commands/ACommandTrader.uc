@@ -313,11 +313,12 @@ protected function HandleTraderSwap(
     ETrader     oldTrader,
     ETrader     newTrader)
 {
-    local bool closeOldTrader;
+    local bool closeOldTrader, openNewTrader;
     if (oldTrader == none)                          return;
     if (oldTrader.SameAs(newTrader))                return;
 
-    closeOldTrader = newTrader == none || !newTrader.IsOpen();
+    closeOldTrader  = newTrader == none || !newTrader.IsOpen();
+    openNewTrader   = oldTrader.IsOpen();
     if (closeOldTrader)
     {
         if (!result.options.HasKey(T(TIGNORE_DOORS))) {
@@ -327,7 +328,7 @@ protected function HandleTraderSwap(
             oldTrader.BootPlayers();
         }
     }
-    if (newTrader != none) {
+    if (openNewTrader && newTrader != none) {
         newTrader.Open();
     }
 }
