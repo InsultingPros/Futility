@@ -181,6 +181,9 @@ public final function AnnounceTradersOpened(ListBuilder traderList)
         tradersOpened.toSelfPublic = _.text.MakeTemplate_S(
             "%%instigator%% {$TextPositive opened} following traders: %1");
     }
+    if (traderList.IsEmpty()) {
+        return;
+    }
     traderListAsText = traderList.GetMutable();
     templates = MakeArray(tradersOpened);
     for (i = 0; i < templates.length; i += 1) {
@@ -203,6 +206,9 @@ public final function AnnounceTradersClosed(ListBuilder traderList)
             "{$TextNegative Closed} following traders: %1");
         tradersClosed.toSelfPublic = _.text.MakeTemplate_S(
             "%%instigator%% {$TextNegative closed} following traders: %1");
+    }
+    if (traderList.IsEmpty()) {
+        return;
     }
     traderListAsText = traderList.GetMutable();
     templates = MakeArray(tradersClosed);
@@ -290,6 +296,9 @@ public final function AnnounceBootedPlayers(ListBuilder traderList)
             "%%instigator%% {$TextNegative booted} players from following"
             @ "traders: %1");
     }
+    if (traderList.IsEmpty()) {
+        return;
+    }
     traderListAsText = traderList.GetMutable();
     templates = MakeArray(bootedPlayers);
     for (i = 0; i < templates.length; i += 1) {
@@ -313,6 +322,9 @@ public final function AnnounceEnabledTraders(ListBuilder traderList)
         enabledTraders.toSelfPublic = _.text.MakeTemplate_S(
             "%%instigator%% {$TextPositive enabled} following traders: %1");
     }
+    if (traderList.IsEmpty()) {
+        return;
+    }
     traderListAsText = traderList.GetMutable();
     templates = MakeArray(enabledTraders);
     for (i = 0; i < templates.length; i += 1) {
@@ -335,6 +347,9 @@ public final function AnnounceDisabledTraders(ListBuilder traderList)
             "{$TextNegative Disabled} following traders: %1");
         disabledTraders.toSelfPublic = _.text.MakeTemplate_S(
             "%%instigator%% {$TextNegative disabled} following traders: %1");
+    }
+    if (traderList.IsEmpty()) {
+        return;
     }
     traderListAsText = traderList.GetMutable();
     templates = MakeArray(disabledTraders);
@@ -360,6 +375,9 @@ public final function AnnounceAutoOpenTraders(ListBuilder traderList)
             "%%instigator%% made following traders {$TextPositive automatically"
             @ "openable}: %1");
     }
+    if (traderList.IsEmpty()) {
+        return;
+    }
     traderListAsText = traderList.GetMutable();
     templates = MakeArray(autoOpenTraders);
     for (i = 0; i < templates.length; i += 1) {
@@ -384,6 +402,9 @@ public final function AnnounceDoNotAutoOpenTraders(ListBuilder traderList)
         doNotAutoOpenTraders.toSelfPublic = _.text.MakeTemplate_S(
             "%%instigator%% made following traders {$TextNegative no longer}"
             @ "automatically openable: %1");
+    }
+    if (traderList.IsEmpty()) {
+        return;
     }
     traderListAsText = traderList.GetMutable();
     templates = MakeArray(doNotAutoOpenTraders);
