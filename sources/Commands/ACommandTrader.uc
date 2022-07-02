@@ -287,7 +287,7 @@ protected function SelectTrader(CallData result, EPlayer callerPlayer)
         _.memory.Free(previouslySelectedTrader);
         return;
     }
-    //  Select proepr trader
+    //  Select proper trader
     HandleTraderSwap(result, previouslySelectedTrader, newlySelectedTrader);
     _.kf.trading.SelectTrader(newlySelectedTrader);
     //  Report change
