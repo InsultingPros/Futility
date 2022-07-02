@@ -178,24 +178,33 @@ protected function ListTradersFor(EPlayer target)
 
 protected function HandleTraderTime(CallData result)
 {
+    local bool      oldIsPaused, newIsPaused;
     local int       countDownValue;
     local Text      parameter;
     local Parser    parser;
     parameter = result.parameters.GetText(T(TTRADER_TIME));
     if (parameter.Compare(T(TPAUSE), SCASE_INSENSITIVE))
     {
-        if (!_.kf.trading.IsCountDownPaused()) {
+        oldIsPaused = _.kf.trading.IsCountDownPaused();
+        if (!oldIsPaused) {
+            _.kf.trading.SetCountdownPause(true);
+        }
+        newIsPaused = _.kf.trading.IsCountDownPaused();
+        if (oldIsPaused != newIsPaused) {
             announcer.AnnouncePausedTime();
         }
-        _.kf.trading.SetCountdownPause(true);
         return;
     }
     else if (parameter.Compare(T(TUNPAUSE), SCASE_INSENSITIVE))
     {
-        if (_.kf.trading.IsCountDownPaused()) {
+        oldIsPaused = _.kf.trading.IsCountDownPaused();
+        if (oldIsPaused) {
+            _.kf.trading.SetCountdownPause(false);
+        }
+        newIsPaused = _.kf.trading.IsCountDownPaused();
+        if (oldIsPaused != newIsPaused) {
             announcer.AnnounceUnpausedTime();
         }
-        _.kf.trading.SetCountdownPause(false);
         return;
     }
     parser = _.text.Parse(parameter);
