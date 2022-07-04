@@ -399,10 +399,11 @@ protected function DisplaySize(
 
 protected function DisplayKeys(
     Database.DBQueryResult  result,
-    DynamicArray            keys,
+    ArrayList               keys,
     Database                source)
 {
     local int           i;
+    local Text          nextKey;
     local EPlayer       instigator;
     local ConsoleWriter console;
 
@@ -420,7 +421,9 @@ protected function DisplayKeys(
             if (i > 0) {
                 console.ResetColor().Write(P(", "));
             }
-            console.UseColor(_.color.jPropertyName).Write(keys.GetText(i));
+            nextKey = keys.GetText(i);
+            console.UseColor(_.color.jPropertyName).Write(nextKey);
+            _.memory.Free(nextKey);
         }
         console.Flush();
         _.memory.Free(instigator);
