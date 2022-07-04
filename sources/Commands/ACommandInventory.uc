@@ -97,15 +97,14 @@ protected function ExecutedFor(
     EPlayer     instigator)
 {
     local InventoryTool tool;
-    local DynamicArray  itemsArray, specifiedLists;
+    local ArrayList     itemsArray, specifiedLists;
     LoadUserFlags(arguments.options);
     tool = class'InventoryTool'.static.CreateFor(target);
     if (tool == none) {
         return;
     }
-    itemsArray      = arguments.parameters.GetDynamicArray(T(TITEMS));
-    specifiedLists  = arguments.options
-        .GetDynamicArrayBy(P("/list/lists names"));
+    itemsArray      = arguments.parameters.GetArrayList(T(TITEMS));
+    specifiedLists  = arguments.options.GetArrayListBy(P("/list/lists names"));
     if (arguments.subCommandName.IsEmpty()) {
         tool.ReportInventory(callerConsole, flagHidden);
     }
@@ -127,15 +126,18 @@ protected function ExecutedFor(
     tool.ReportChanges(instigator, callerConsole, IRT_Instigator);
     tool.ReportChanges(instigator, othersConsole, IRT_Others);
     _.memory.Free(tool);
+    _.memory.Free(itemsArray);
+    _.memory.Free(specifiedLists);
 }
 
 protected function SubCommandAdd(
     InventoryTool   tool,
-    DynamicArray    itemsArray,
-    DynamicArray    specifiedLists)
+    ArrayList       itemsArray,
+    ArrayList       specifiedLists)
 {
     local int           i;
     local int           itemsAmount;
+    local Text          nextItem;
     local array<Text>   itemsFromLists;
     if (tool == none) {
         return;
@@ -145,8 +147,11 @@ protected function SubCommandAdd(
     }
     //  Add items user listed manually
     //  Use `itemsAmount` because `itemsArray` can be `none`
-    for (i = 0; i < itemsAmount; i += 1) {
-        tool.AddItem(itemsArray.GetText(i), flagForce, flagAmmo);
+    for (i = 0; i < itemsAmount; i += 1)
+    {
+        nextItem = itemsArray.GetText(i);
+        tool.AddItem(nextItem, flagForce, flagAmmo);
+        _.memory.Free(nextItem);
     }
     //  Add items from specified lists
     itemsFromLists = LoadAllItemsLists(specifiedLists);
@@ -158,11 +163,12 @@ protected function SubCommandAdd(
 
 protected function SubCommandRemove(
     InventoryTool   tool,
-    DynamicArray    itemsArray,
-    DynamicArray    specifiedLists)
+    ArrayList       itemsArray,
+    ArrayList       specifiedLists)
 {
     local int           i;
     local int           itemsAmount;
+    local Text          nextItem;
     local array<Text>   itemsFromLists;
     if (tool == none) {
         return;
@@ -182,8 +188,11 @@ protected function SubCommandRemove(
     }
     //  Remove items user listed manually
     //  Use `itemsAmount` because `itemsArray` can be `none`
-    for (i = 0; i < itemsAmount; i += 1) {
-        tool.RemoveItem(itemsArray.GetText(i), flagKeep, flagForce, flagAll);
+    for (i = 0; i < itemsAmount; i += 1)
+    {
+        nextItem = itemsArray.GetText(i);
+        tool.RemoveItem(nextItem, flagKeep, flagForce, flagAll);
+        _.memory.Free(nextItem);
     }
     //  Remove items from specified lists
     itemsFromLists = LoadAllItemsLists(specifiedLists);
@@ -193,7 +202,7 @@ protected function SubCommandRemove(
     _.memory.FreeMany(itemsFromLists);
 }
 
-protected function LoadUserFlags(AssociativeArray options)
+protected function LoadUserFlags(HashTable options)
 {
     if (options == none)
     {
@@ -215,9 +224,10 @@ protected function LoadUserFlags(AssociativeArray options)
     flagGroups  = options.HasKey(T(TLIST));
 }
 
-protected function array<Text> LoadAllItemsLists(DynamicArray specifiedLists)
+protected function array<Text> LoadAllItemsLists(ArrayList specifiedLists)
 {
     local int           i, j;
+    local Text          nextList;
     local array<Text>   result;
     local array<Text>   nextItemBatch;
     local array<Text>   availableLists;
@@ -230,10 +240,11 @@ protected function array<Text> LoadAllItemsLists(DynamicArray specifiedLists)
     badLists = ListBuilder(_.memory.Allocate(class'ListBuilder'));
     callerConsole.Write(T(TLISTS_SKIPPED));
     availableLists = _.kf.templates.GetAvailableLists();
-    for (i = 0; i < specifiedLists.Getlength(); i += 1)
+    for (i = 0; i < specifiedLists.GetLength(); i += 1)
     {
-        nextItemBatch =
-            LoadItemsList(specifiedLists.GetText(i), availableLists, badLists);
+        nextList = specifiedLists.GetText(i);
+        nextItemBatch = LoadItemsList(nextList, availableLists, badLists);
+        _.memory.Free(nextList);
         for (j = 0; j < nextItemBatch.length; j += 1) {
             result[result.length] = nextItemBatch[j];
         }

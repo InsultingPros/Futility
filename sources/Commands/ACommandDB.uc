@@ -226,10 +226,11 @@ protected function Executed(CallData arguments, EPlayer instigator)
 
 //  Simple API calls
 private function bool TryAPICallCommands(
-    BaseText            subCommand,
-    EPlayer             instigator,
-    AssociativeArray    commandParameters)
+    BaseText    subCommand,
+    EPlayer     instigator,
+    HashTable   commandParameters)
 {
+    local Text databaseName;
     if (subCommand.IsEmpty())
     {
         callerConsole.WriteLine(T(TNO_DEFAULT_COMMAND));
@@ -242,14 +243,16 @@ private function bool TryAPICallCommands(
     }
     else if (subCommand.Compare(T(TCREATE)))
     {
-        CreateDatabase( instigator,
-                        commandParameters.GetText(T(TDATABASE_NAME)));
+        databaseName = commandParameters.GetText(T(TDATABASE_NAME));
+        CreateDatabase(instigator, databaseName);
+        _.memory.Free(databaseName);
         return true;
     }
     else if (subCommand.Compare(T(TDELETE)))
     {
-        DeleteDatabase( instigator,
-                        commandParameters.GetText(T(TDATABASE_NAME)));
+        databaseName = commandParameters.GetText(T(TDATABASE_NAME));
+        DeleteDatabase(instigator, databaseName);
+        _.memory.Free(databaseName);
         return true;
     }
     return false;

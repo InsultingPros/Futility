@@ -34,24 +34,31 @@ var public config ChatColorSetting  colorSetting;
 var public config Color             configuredColor;
 var public config float             teamColorModifier;
 
-protected function AssociativeArray ToData()
+protected function HashTable ToData()
 {
-    local AssociativeArray data;
-    data = __().collections.EmptyAssociativeArray();
-    data.SetItem(   P("colorSetting"),
-                    _.text.FromString(string(colorSetting)), true);
-    data.SetItem(P("configuredColor"), _.color.ToText(configuredColor), true);
-    data.SetFloat(P("teamColorModifier"), teamColorModifier, true);
+    local HashTable data;
+    local Text      colorAsText;
+    data = __().collections.EmptyHashTable();
+    data.SetString(P("colorSetting"), string(colorSetting));
+    colorAsText = _.color.ToText(configuredColor);
+    data.SetItem(P("configuredColor"), colorAsText);
+    _.memory.Free(colorAsText);
+    data.SetFloat(P("teamColorModifier"), teamColorModifier);
     return data;
 }
 
-protected function FromData(AssociativeArray source)
+protected function FromData(HashTable source)
 {
+    local Text storedText;
     if (source == none) {
         return;
     }
-    colorSetting = ColorSettingFromText(source.GetText(P("colorSetting")));
-    _.color.Parse(source.GetText(P("configuredColor")), configuredColor);
+    storedText = source.GetText(P("colorSetting"));
+    colorSetting = ColorSettingFromText(storedText);
+    _.memory.Free(storedText);
+    storedText = source.GetText(P("configuredColor"));
+    _.color.Parse(storedText, configuredColor);
+    _.memory.Free(storedText);
     teamColorModifier = source.GetFloat(P("teamColorModifier"), 0.5);
 }
 

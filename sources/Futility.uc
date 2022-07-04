@@ -1,6 +1,6 @@
 /**
  *      Config object for `Futility_Feature`.
- *      Copyright 2021 Anton Tarasenko
+ *      Copyright 2021-2022 Anton Tarasenko
  *------------------------------------------------------------------------------
  * This file is part of Futility.
  *
@@ -21,12 +21,12 @@ class Futility extends FeatureConfig
     perobjectconfig
     config(Futility);
 
-protected function AssociativeArray ToData()
+protected function HashTable ToData()
 {
-    return _.collections.EmptyAssociativeArray();
+    return _.collections.EmptyHashTable();
 }
 
-protected function FromData(AssociativeArray source)
+protected function FromData(HashTable source)
 {
 }
 

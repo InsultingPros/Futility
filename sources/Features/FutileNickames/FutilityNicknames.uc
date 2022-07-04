@@ -45,45 +45,47 @@ var public config bool                      correctEmptyNicknames;
 var public config int                       maxNicknameLength;
 var public config array<string>             fallbackNickname;
 
-protected function AssociativeArray ToData()
+protected function HashTable ToData()
 {
-    local int               i;
-    local DynamicArray      fallbackNicknamesData;
-    local AssociativeArray  data;
-    data = __().collections.EmptyAssociativeArray();
-    data.SetItem(   P("spacesAction"),
-                    _.text.FromString(string(spacesAction)), true);
-    data.SetItem(   P("colorPermissions"),
-                    _.text.FromString(string(colorPermissions)), true);
+    local int       i;
+    local ArrayList fallbackNicknamesData;
+    local HashTable data;
+    data = __().collections.EmptyHashTable();
+    data.SetString(P("spacesAction"), string(spacesAction));
+    data.SetString(P("colorPermissions"), string(colorPermissions));
     data.SetBool(   P("replaceSpacesWithUnderscores"),
-                    replaceSpacesWithUnderscores, true);
+                    replaceSpacesWithUnderscores);
     data.SetBool(   P("removeSingleQuotationMarks"),
-                    removeSingleQuotationMarks, true);
+                    removeSingleQuotationMarks);
     data.SetBool(   P("removeDoubleQuotationMarks"),
-                    removeDoubleQuotationMarks, true);
-    data.SetBool(P("correctEmptyNicknames"), correctEmptyNicknames, true);
-    data.SetInt(P("maxNicknameLength"), maxNicknameLength, true);
-    fallbackNicknamesData = __().collections.EmptyDynamicArray();
+                    removeDoubleQuotationMarks);
+    data.SetBool(P("correctEmptyNicknames"), correctEmptyNicknames);
+    data.SetInt(P("maxNicknameLength"), maxNicknameLength);
+    fallbackNicknamesData = __().collections.EmptyArrayList();
     for (i = 0; i < fallbackNickname.length; i += 1)
     {
         fallbackNicknamesData.AddItem(
-            __().text.FromFormattedString(fallbackNickname[i]), true);
+            __().text.FromFormattedString(fallbackNickname[i]));
     }
-    data.SetItem(P("fallbackNickname"), fallbackNicknamesData, true);
+    data.SetItem(P("fallbackNickname"), fallbackNicknamesData);
+    _.memory.Free(fallbackNicknamesData);
     return data;
 }
 
-protected function FromData(AssociativeArray source)
+protected function FromData(HashTable source)
 {
-    local int           i;
-    local Text          nextNickName;
-    local DynamicArray  fallbackNicknamesData;
+    local int       i;
+    local Text      nextNickName, storedText;
+    local ArrayList fallbackNicknamesData;
     if (source == none) {
         return;
     }
-    spacesAction = SpaceActionFromText(source.GetText(P("spacesAction")));
-    colorPermissions = ColorPermissionsFromText(
-        source.GetText(P("colorPermissions")));
+    storedText = source.GetText(P("spacesAction"));
+    spacesAction = SpaceActionFromText(storedText);
+    _.memory.Free(storedText);
+    storedText = source.GetText(P("colorPermissions"));
+    colorPermissions = ColorPermissionsFromText(storedText);
+    _.memory.Free(storedText);
     replaceSpacesWithUnderscores =
         source.GetBool(P("replaceSpacesWithUnderscores"), true);
     removeSingleQuotationMarks =
@@ -92,7 +94,7 @@ protected function FromData(AssociativeArray source)
         source.GetBool(P("removeDoubleQuotationMarks"), true);
     correctEmptyNicknames = source.GetBool(P("correctEmptyNicknames"), true);
     maxNicknameLength = source.GetInt(P("correctEmptyNicknames"), 20);
-    fallbackNicknamesData = DynamicArray(source.GetItem(P("fallbackNickname")));
+    fallbackNicknamesData = source.GetArrayList(P("fallbackNickname"));
     if (fallbackNickname.length > 0) {
         fallbackNickname.length = 0;
     }
@@ -105,7 +107,9 @@ protected function FromData(AssociativeArray source)
         else {
             fallbackNickname[i] = "";
         }
+        _.memory.Free(nextNickName);
     }
+    _.memory.Free(fallbackNicknamesData);
 }
 
 private function NicknameSpacesAction SpaceActionFromText(BaseText action)

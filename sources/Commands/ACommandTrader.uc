@@ -436,8 +436,8 @@ protected function array<ETrader> GetTradersArray(
     EPlayer             callerPlayer)
 {
     local int               i, j;
-    local Text              nextTraderName;
-    local DynamicArray      specifiedTrades;
+    local Text              nextTraderName, nextSpecifiedTrader;
+    local ArrayList         specifiedTrades;
     local array<ETrader>    resultTraders;
     local array<ETrader>    availableTraders;
     //  Boundary cases: all traders and no traders at all
@@ -451,7 +451,7 @@ protected function array<ETrader> GetTradersArray(
         resultTraders =
             InsertTrader(resultTraders, FindClosestTrader(callerPlayer));
     }
-    specifiedTrades = result.parameters.GetDynamicArray(T(TTRADERS));
+    specifiedTrades = result.parameters.GetArrayList(T(TTRADERS));
     if (specifiedTrades == none) {
         return resultTraders;
     }
@@ -465,14 +465,17 @@ protected function array<ETrader> GetTradersArray(
         nextTraderName = availableTraders[i].GetName();
         for (j = 0; j < specifiedTrades.GetLength(); j += 1)
         {
-            if (nextTraderName.Compare(specifiedTrades.GetText(j)))
+            nextSpecifiedTrader = specifiedTrades.GetText(j);
+            if (nextTraderName.Compare(nextSpecifiedTrader))
             {
                 resultTraders =
                     InsertTrader(resultTraders, availableTraders[i]);
                 availableTraders[i] = none;
                 specifiedTrades.Remove(j, 1);
+                _.memory.Free(nextSpecifiedTrader);
                 break;
             }
+            _.memory.Free(nextSpecifiedTrader);
         }
         nextTraderName.FreeSelf();
         if (specifiedTrades.GetLength() <= 0) {
@@ -484,6 +487,7 @@ protected function array<ETrader> GetTradersArray(
     if (callerPlayer != none && specifiedTrades.GetLength() > 0) {
         ReportUnknowTraders(specifiedTrades);
     }
+    _.memory.Free(specifiedTrades);
     _.memory.FreeMany(availableTraders);
     return resultTraders;
 }
@@ -510,9 +514,10 @@ protected function array<ETrader> InsertTrader(
     return traders;
 }
 
-protected function ReportUnknowTraders(DynamicArray specifiedTrades)
+protected function ReportUnknowTraders(ArrayList specifiedTrades)
 {
-    local int i;
+    local int   i;
+    local Text  nextTraderName;
     if (specifiedTrades == none) {
         return;
     }
@@ -520,7 +525,9 @@ protected function ReportUnknowTraders(DynamicArray specifiedTrades)
         .UseColorOnce(_.color.TextNegative).Write(T(TUNKNOWN_TRADERS));
     for (i = 0; i < specifiedTrades.GetLength(); i += 1)
     {
-        callerConsole.Write(specifiedTrades.GetText(i));
+        nextTraderName = specifiedTrades.GetText(i);
+        callerConsole.Write(nextTraderName);
+        _.memory.Free(nextTraderName);
         if (i != specifiedTrades.GetLength() - 1) {
             callerConsole.Write(T(TCOMMA_SPACE));
         }
