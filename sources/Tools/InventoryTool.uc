@@ -530,7 +530,7 @@ private final function MutableText ColorNickname(/* take */ BaseText nickname)
     }
     return nickname
         .IntoMutableText()
-        .ChangeDefaultColor(_.color.Gray);
+        .ChangeDefaultColor(_.color.LightGray);
 }
 
 /**

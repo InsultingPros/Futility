@@ -138,7 +138,7 @@ public final function Setup(
         targetName = target
             .GetName()
             .IntoMutableText()
-            .ChangeDefaultColor(_.color.Gray);
+            .ChangeDefaultColor(_.color.LightGray);
     }
     instigator = none;
     _.memory.Free(instigatorName);
@@ -150,7 +150,7 @@ public final function Setup(
         instigatorName = instigator
             .GetName()
             .IntoMutableText()
-            .ChangeDefaultColor(_.color.Gray);
+            .ChangeDefaultColor(_.color.LightGray);
     }
     publicConsole = none;
     if (newPublicConsole != none && newPublicConsole.IsAllocated())
