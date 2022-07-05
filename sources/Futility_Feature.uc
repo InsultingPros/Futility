@@ -78,5 +78,6 @@ defaultproperties
     allCommandClasses(3) = class'ACommandDB'
     allCommandClasses(4) = class'ACommandInventory'
     allCommandClasses(5) = class'ACommandFeature'
+    allCommandClasses(6) = class'ACommandGod'
     errNoCommandsFeature = (l=LOG_Error,m="`Commands_Feature` is not detected, \"Futility\" will not be able to provide its functionality.")
 }
