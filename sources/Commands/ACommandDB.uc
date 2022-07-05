@@ -76,7 +76,8 @@ var protected const int TDB_CANNOT_BE_CREATED, TNO_DEFAULT_COMMAND, TBAD_DBLINK;
 
 protected function BuildData(CommandDataBuilder builder)
 {
-    builder.Name(P("db")).Summary(P("Read and edit data in your databases."
+    builder.Name(P("db")).Group(P("admin"))
+        .Summary(P("Read and edit data in your databases."
         @ "Databases' values are addressed with links:"
         @ "\"<db_name>:<json_path>\""));
     builder.SubCommand(T(TCREATE))

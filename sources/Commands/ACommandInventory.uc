@@ -34,7 +34,7 @@ var protected const int TLISTS_SKIPPED;
 
 protected function BuildData(CommandDataBuilder builder)
 {
-    builder.Name(T(TINVENTORY))
+    builder.Name(T(TINVENTORY)).Group(P("gameplay"))
         .Summary(P("Manages player's inventory."))
         .Describe(P("Command for displaying and editing players' inventories."
             @ "If called without specifying subcommand - simply displays"

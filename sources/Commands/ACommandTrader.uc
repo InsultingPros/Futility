@@ -38,7 +38,7 @@ protected function Finalizer()
 
 protected function BuildData(CommandDataBuilder builder)
 {
-    builder.Name(T(TTRADER))
+    builder.Name(T(TTRADER)).Group(P("gameplay"))
         .Summary(P("Manages trader time and available traders."))
         .Describe(P("Enables of disables trading."))
         .ParamBoolean(T(TENABLE));

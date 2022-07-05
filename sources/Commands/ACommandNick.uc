@@ -34,7 +34,8 @@ protected function Finalizer()
 
 protected function BuildData(CommandDataBuilder builder)
 {
-    builder.Name(P("nick")).Summary(P("Changes nickname."));
+    builder.Name(P("nick")).Group(P("gameplay"))
+        .Summary(P("Changes nickname."));
     builder.RequireTarget();
     builder.ParamRemainder(P("nick"))
         .Describe(P("Changes nickname of targeted players to <nick>."));

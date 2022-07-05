@@ -29,7 +29,8 @@ protected function Finalizer()
 
 protected function BuildData(CommandDataBuilder builder)
 {
-    builder.Name(P("dosh")).Summary(P("Changes amount of money."));
+    builder.Name(P("dosh")).Group(P("gameplay"))
+        .Summary(P("Changes amount of money."));
     builder.RequireTarget();
     builder.ParamInteger(P("amount"))
         .Describe(P("Gives (or takes if negative) players a specified <amount>"

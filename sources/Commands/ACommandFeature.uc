@@ -32,7 +32,8 @@ protected function Finalizer()
 
 protected function BuildData(CommandDataBuilder builder)
 {
-    builder.Name(P("feature")).Summary(P("Managing features."))
+    builder.Name(P("feature")).Group(P("admin"))
+        .Summary(P("Managing features."))
         .Describe(P("Command for displaying and enabling/disabling features."));
     builder.SubCommand(P("enable"))
         .ParamText(P("feature"))
