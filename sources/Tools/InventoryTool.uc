@@ -91,7 +91,7 @@ public static function StaticConstructor()
     default.templateAdditionFailed = __().text.MakeTemplate_S(
         "Weapons we've {$TextFailure failed} to add to %%target%%: ");
     default.templateRemovalFailed = __().text.MakeTemplate_S(
-        "Weapons we've {$TextFailure failed} to remove from %%target%%:" );
+        "Weapons we've {$TextFailure failed} to remove from %%target%%: " );
 }
 
 protected function Constructor()
