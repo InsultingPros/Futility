@@ -1,7 +1,7 @@
 /**
  *  This is the Futility feature, whose main purpose is to register commands
  *  from its package.
- *      Copyright 2021 Anton Tarasenko
+ *      Copyright 2021-2022 Anton Tarasenko
  *------------------------------------------------------------------------------
  * This file is part of Futility.
  *
@@ -79,5 +79,6 @@ defaultproperties
     allCommandClasses(4) = class'ACommandInventory'
     allCommandClasses(5) = class'ACommandFeature'
     allCommandClasses(6) = class'ACommandGod'
+    allCommandClasses(7) = class'ACommandSpawn'
     errNoCommandsFeature = (l=LOG_Error,m="`Commands_Feature` is not detected, \"Futility\" will not be able to provide its functionality.")
 }
