@@ -109,11 +109,11 @@ protected function Executed(CallData arguments, EPlayer instigator)
     {
         newTradingStatus = arguments.parameters.GetBool(T(TENABLE));
         if (    arguments.parameters.GetBool(T(TENABLE))
-            ==  _.kf.trading.IsTradingActive())
+            ==  _server.kf.trading.IsTradingActive())
         {
             announcer.AnnounceTradingNoChange();
         }
-        _.kf.trading.SetTradingStatus(newTradingStatus);
+        _server.kf.trading.SetTradingStatus(newTradingStatus);
         if (newTradingStatus) {
             announcer.AnnounceActivatedTrading();
         }
@@ -159,7 +159,7 @@ protected function ListTradersFor(EPlayer target)
     if (target == none) {
         return;
     }
-    availableTraders = _.kf.trading.GetTraders();
+    availableTraders = _server.kf.trading.GetTraders();
     callerConsole.Flush()
         .UseColorOnce(_.color.TextEmphasis).Write(T(TLIST_TRADERS));
     closestTrader = FindClosestTrader(target);
@@ -185,11 +185,11 @@ protected function HandleTraderTime(CallData result)
     parameter = result.parameters.GetText(T(TTRADER_TIME));
     if (parameter.Compare(T(TPAUSE), SCASE_INSENSITIVE))
     {
-        oldIsPaused = _.kf.trading.IsCountDownPaused();
+        oldIsPaused = _server.kf.trading.IsCountDownPaused();
         if (!oldIsPaused) {
-            _.kf.trading.SetCountdownPause(true);
+            _server.kf.trading.SetCountdownPause(true);
         }
-        newIsPaused = _.kf.trading.IsCountDownPaused();
+        newIsPaused = _server.kf.trading.IsCountDownPaused();
         if (oldIsPaused != newIsPaused) {
             announcer.AnnouncePausedTime();
         }
@@ -197,11 +197,11 @@ protected function HandleTraderTime(CallData result)
     }
     else if (parameter.Compare(T(TUNPAUSE), SCASE_INSENSITIVE))
     {
-        oldIsPaused = _.kf.trading.IsCountDownPaused();
+        oldIsPaused = _server.kf.trading.IsCountDownPaused();
         if (oldIsPaused) {
-            _.kf.trading.SetCountdownPause(false);
+            _server.kf.trading.SetCountdownPause(false);
         }
-        newIsPaused = _.kf.trading.IsCountDownPaused();
+        newIsPaused = _server.kf.trading.IsCountDownPaused();
         if (oldIsPaused != newIsPaused) {
             announcer.AnnounceUnpausedTime();
         }
@@ -210,8 +210,8 @@ protected function HandleTraderTime(CallData result)
     parser = _.text.Parse(parameter);
     if (parser.MInteger(countDownValue).Ok())
     {
-        _.kf.trading.SetCountdown(countDownValue);
-        announcer.AnnounceChangedCountdown(_.kf.trading.GetCountdown());
+        _server.kf.trading.SetCountdown(countDownValue);
+        announcer.AnnounceChangedCountdown(_server.kf.trading.GetCountdown());
     }
     else
     {
@@ -277,7 +277,7 @@ protected function SelectTrader(CallData result, EPlayer callerPlayer)
     local Text      specifiedTraderName;
     local ETrader   previouslySelectedTrader, newlySelectedTrader;
 
-    previouslySelectedTrader = _.kf.trading.GetSelectedTrader();
+    previouslySelectedTrader = _server.kf.trading.GetSelectedTrader();
     specifiedTraderName = result.parameters.GetText(T(TTRADER));
     //  Try to get trader user want to select:
     //  first try closes (if option is specified), next trader's name
@@ -285,7 +285,7 @@ protected function SelectTrader(CallData result, EPlayer callerPlayer)
         newlySelectedTrader = FindClosestTrader(callerPlayer);
     }
     if (newlySelectedTrader == none) {
-        newlySelectedTrader = _.kf.trading.GetTrader(specifiedTraderName);
+        newlySelectedTrader = _server.kf.trading.GetTrader(specifiedTraderName);
     }
     //  If nothing is found, but name was specified - there is an error
     if (newlySelectedTrader == none && specifiedTraderName != none)
@@ -298,7 +298,7 @@ protected function SelectTrader(CallData result, EPlayer callerPlayer)
     }
     //  Select proper trader
     HandleTraderSwap(result, previouslySelectedTrader, newlySelectedTrader);
-    _.kf.trading.SelectTrader(newlySelectedTrader);
+    _server.kf.trading.SelectTrader(newlySelectedTrader);
     //  Report change
     if (AreTradersSame(previouslySelectedTrader, newlySelectedTrader)) {
         announcer.AnnounceSelectedSameTrader();
@@ -352,7 +352,7 @@ protected function BootFromTraders(CallData result, EPlayer callerPlayer)
     affectedTraderList = ListBuilder(_.memory.Allocate(class'ListBuilder'));
     selectedTraders = GetTradersArray(result, callerPlayer);
     if (selectedTraders.length <= 0) {
-        selectedTraders = _.kf.trading.GetTraders();
+        selectedTraders = _server.kf.trading.GetTraders();
     }
     for (i = 0; i < selectedTraders.length; i += 1)
     {
@@ -441,7 +441,7 @@ protected function array<ETrader> GetTradersArray(
     local array<ETrader>    resultTraders;
     local array<ETrader>    availableTraders;
     //  Boundary cases: all traders and no traders at all
-    availableTraders = _.kf.trading.GetTraders();
+    availableTraders = _server.kf.trading.GetTraders();
     if (result.options.HasKey(T(TALL))) {
         return availableTraders;
     }
@@ -547,7 +547,7 @@ protected function ETrader FindClosestTrader(EPlayer target)
         return none;
     }
     targetLocation = target.GetLocation();
-    availableTraders = _.kf.trading.GetTraders();
+    availableTraders = _server.kf.trading.GetTraders();
     for (i = 0; i < availableTraders.length; i += 1)
     {
         newDistance =

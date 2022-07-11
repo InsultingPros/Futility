@@ -106,7 +106,7 @@ private final function UserDataRead(
     asJSON = _.json.PrettyPrint(userData);
     targetPlayer.BorrowConsole()
         .Write(F("{$TextPositive User data for player}"))
-        .Write(targetPlayerName);
+        .Write(targetPlayerName)
         .Write(P(":"))
         .WriteLine(asJSON);
     _.memory.Free(targetPlayer);

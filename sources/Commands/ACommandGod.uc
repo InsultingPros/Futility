@@ -38,7 +38,7 @@ var private const int TDAMAGE, TMOMENTUM;
 protected function Finalizer()
 {
     _.memory.Free(announcer);
-    _.kf.health.OnDamage(self).Disconnect();
+    _server.kf.health.OnDamage(self).Disconnect();
     super.Finalizer();
 }
 
@@ -62,7 +62,7 @@ protected function BuildData(CommandDataBuilder builder)
             @ "affected by the momentum trasnferred from damaging attacks."));
     announcer = ACommandGod_Announcer(
         _.memory.Allocate(class'ACommandGod_Announcer'));
-    _.kf.health.OnDamage(self).connect = ProtectDivines;
+    _server.kf.health.OnDamage(self).connect = ProtectDivines;
 }
 
 protected function ExecutedFor(

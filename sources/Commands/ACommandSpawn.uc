@@ -82,7 +82,7 @@ private final function SpawnAt(
 {
     local EPlaceable result;
 
-    result = _.kf.world.Spawn(template, spawnLocation);
+    result = _server.kf.world.Spawn(template, spawnLocation);
     if (result != none) {
         announcer.AnnounceSpawned(template);
     }
@@ -100,21 +100,21 @@ private final function SpawnInInstigatorSight(
     local Vector            spawnLocation;
     local TracingIterator   iter;
 
-    iter = _.kf.world.TracePlayerSight(instigator).LeaveOnlyVisible();
+    iter = _server.kf.world.TracePlayerSight(instigator).LeaveOnlyVisible();
     if (iter.HasFinished())
     {
         announcer.AnnounceFailedTrace();
         return;
     }
     spawnLocation = iter.GetHitLocation();
-    result = _.kf.world.Spawn(template, spawnLocation);
+    result = _server.kf.world.Spawn(template, spawnLocation);
     //  Shift position back a little and try again;
     //  this should fix a ton of spawning failures
     if (result == none)
     {
         spawnLocation = spawnLocation +
             Normal(iter.GetTracingStart() - spawnLocation) * 100;
-        result = _.kf.world.Spawn(template, spawnLocation);
+        result = _server.kf.world.Spawn(template, spawnLocation);
     }
     if (result != none) {
         announcer.AnnounceSpawned(template);

@@ -239,7 +239,7 @@ protected function array<Text> LoadAllItemsLists(ArrayList specifiedLists)
     }
     badLists = ListBuilder(_.memory.Allocate(class'ListBuilder'));
     callerConsole.Write(T(TLISTS_SKIPPED));
-    availableLists = _.kf.templates.GetAvailableLists();
+    availableLists = _server.kf.templates.GetAvailableLists();
     for (i = 0; i < specifiedLists.GetLength(); i += 1)
     {
         nextList = specifiedLists.GetText(i);
@@ -270,14 +270,14 @@ protected function array<Text> LoadItemsList(
     for (i = 0; i < availableLists.length; i += 1)
     {
         if (availableLists[i].Compare(listName, SCASE_INSENSITIVE)) {
-            return _.kf.templates.GetItemList(availableLists[i]);
+            return _server.kf.templates.GetItemList(availableLists[i]);
         }
     }
     //  Prefix matching otherwise
     for (i = 0; i < availableLists.length; i += 1)
     {
         if (availableLists[i].StartsWith(listName, SCASE_INSENSITIVE)) {
-            return _.kf.templates.GetItemList(availableLists[i]);
+            return _server.kf.templates.GetItemList(availableLists[i]);
         }
     }
     badLists.Item(listName);
