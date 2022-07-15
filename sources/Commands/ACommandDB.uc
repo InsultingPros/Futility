@@ -354,9 +354,8 @@ protected function DisplayData(
     AcediaObject            data,
     Database                source)
 {
-    local Text          printedJSON;
-    local EPlayer       instigator;
-    local Collection    dataAsCollection;
+    local Text      printedJSON;
+    local EPlayer   instigator;
 
     instigator = PopPlayer(source);
     OutputStatus(instigator, result);
@@ -367,10 +366,6 @@ protected function DisplayData(
         _.memory.Free(printedJSON);
         _.memory.Free(instigator);
         instigator = none;
-    }
-    dataAsCollection = Collection(data);
-    if (dataAsCollection != none) {
-        dataAsCollection.Empty(true);
     }
     _.memory.Free(data);
 }
