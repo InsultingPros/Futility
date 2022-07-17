@@ -100,8 +100,8 @@ private final function SpawnInInstigatorSight(
     local Vector            spawnLocation;
     local TracingIterator   iter;
 
-    iter = _server.kf.world.TracePlayerSight(instigator).LeaveOnlyVisible();
-    if (iter.HasFinished())
+    iter = _server.kf.world.TracePlayerSight(instigator);
+    if (iter.LeaveOnlyVisible().HasFinished())
     {
         announcer.AnnounceFailedTrace();
         return;
