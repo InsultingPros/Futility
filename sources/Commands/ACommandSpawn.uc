@@ -123,6 +123,7 @@ private final function SpawnInInstigatorSight(
         announcer.AnnounceSpawningFailed(template);
     }
     _.memory.Free(result);
+    _.memory.Free(iter);
 }
 
 defaultproperties
