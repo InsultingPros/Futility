@@ -29,7 +29,8 @@ struct GodStatus
     var bool    unmovable;
 };
 
-var private array<GodStatus> godhoodList;
+var private bool                connectedToSignal;
+var private array<GodStatus>    godhoodList;
 
 var private ACommandGod_Announcer announcer;
 
@@ -37,8 +38,9 @@ var private const int TDAMAGE, TMOMENTUM;
 
 protected function Finalizer()
 {
-    _.memory.Free(announcer);
+    connectedToSignal = false;
     _server.kf.health.OnDamage(self).Disconnect();
+    _.memory.Free(announcer);
     super.Finalizer();
 }
 
@@ -62,7 +64,6 @@ protected function BuildData(CommandDataBuilder builder)
             @ "affected by the momentum trasnferred from damaging attacks."));
     announcer = ACommandGod_Announcer(
         _.memory.Allocate(class'ACommandGod_Announcer'));
-    _server.kf.health.OnDamage(self).connect = ProtectDivines;
 }
 
 protected function ExecutedFor(
@@ -157,6 +158,7 @@ private final function MakeGod(
         newGodStatus.target.NewRef();
         godhoodList[godhoodList.length] = newGodStatus;
     }
+    UpdateHealthSignalConnection();
 }
 
 private final function RemoveGod(EPlayer target)
@@ -173,6 +175,7 @@ private final function RemoveGod(EPlayer target)
             announcer.AnnounceRemoveGod(godhoodList[i]);
             godhoodList[i].target.FreeSelf();
             godhoodList.Remove(i, 1);
+            UpdateHealthSignalConnection();
             return;
         }
     }
@@ -194,6 +197,20 @@ private final function GodStatus BorrowGodStatus(EPlayer target)
         }
     }
     return emptyStatus;
+}
+
+private final function UpdateHealthSignalConnection()
+{
+    if (connectedToSignal && godhoodList.length <= 0)
+    {
+        _server.kf.health.OnDamage(self).Disconnect();
+        connectedToSignal = false;
+    }
+    if (!connectedToSignal && godhoodList.length > 0)
+    {
+        connectedToSignal = true;
+        _server.kf.health.OnDamage(self).connect = ProtectDivines;
+    }
 }
 
 defaultproperties
