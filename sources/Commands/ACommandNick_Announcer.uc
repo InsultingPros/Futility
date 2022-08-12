@@ -42,7 +42,7 @@ public final function AnnounceChangedNickname(BaseText newNickname)
             "%%instigator%% {$TextNeutral changed} their own nickname to"
             @ "\"%1\"");
         changedNickname.toOtherReport = _.text.MakeTemplate_S(
-            "Nickname for %%instigator%% {$TextNeutral changed} to"
+            "Nickname for %%target%% {$TextNeutral changed} to"
             @ "\"%1\"");
         changedNickname.toOtherPrivate = _.text.MakeTemplate_S(
             "%%instigator%% {$TextNeutral changed} your nickname to \"%1\"");
@@ -74,7 +74,7 @@ public final function AnnounceChangedAlteredNickname(
             "%%instigator%% has {$TextNeutral changed} their own nickname to"
             @ "\"%1\", but it was altered by the game into \"%2\"");
         changedAlteredNickname.toOtherReport = _.text.MakeTemplate_S(
-            "Nickname for %%instigator%% was {$TextNeutral changed} to"
+            "Nickname for %%target%% was {$TextNeutral changed} to"
             @ "\"%1\", but then got altered by the game into \"%2\"");
         changedAlteredNickname.toOtherPrivate = _.text.MakeTemplate_S(
             "%%instigator%% has {$TextNeutral changed} your nickname to \"%1\","
