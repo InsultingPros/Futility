@@ -273,7 +273,7 @@ private final function AnnounceTemplate(
         .TextArg(P("instigator"), instigatorName)
         .TextArg(P("target"), targetName);
     result = template.CollectFormattedM();
-    writer.Say(result);
+    writer.Write(result).Flush();
     _.memory.Free(result);
 }
 
