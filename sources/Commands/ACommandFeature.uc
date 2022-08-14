@@ -20,13 +20,25 @@
 class ACommandFeature extends Command;
 
 //  TODO: autoconf, newconf, deleteconf, setconf
-//  TODO: when displaying features - display which one is enabled
+
+struct EditedConfigs
+{
+    var class<Feature>  featureClass;
+    var HashTable       pendingSaves;
+};
+var private array<EditedConfigs> configEdits;
 
 var private ACommandFeature_Announcer announcer;
 
 protected function Finalizer()
 {
+    local int i;
+
     _.memory.Free(announcer);
+    for (i = 0; i < configEdits.length; i ++) {
+        _.memory.Free(configEdits[i].pendingSaves);
+    }
+    configEdits.length = 0;
     super.Finalizer();
 }
 
@@ -43,6 +55,14 @@ protected function BuildData(CommandDataBuilder builder)
     builder.SubCommand(P("disable"))
         .ParamText(P("feature"))
         .Describe(P("Disables specified <feature>."));
+    builder.SubCommand(P("showconf"))
+        .ParamText(P("feature"))
+        .ParamText(P("config"));
+    builder.SubCommand(P("editconf"))
+        .ParamText(P("feature"))
+        .ParamText(P("config"))
+        .ParamText(P("variable path"))
+        .ParamRemainder(P("value"));
     announcer = ACommandFeature_Announcer(
         _.memory.Allocate(class'ACommandFeature_Announcer'));
 }
@@ -62,6 +82,20 @@ protected function Executed(CallData arguments, EPlayer instigator)
     else if (arguments.subCommandName.Compare(P("disable"))) {
         DisableFeature(arguments.parameters.GetText(P("feature")));
     }
+    else if (arguments.subCommandName.Compare(P("showconf")))
+    {
+        ShowFeatureConfig(
+            arguments.parameters.GetText(P("feature")),
+            arguments.parameters.GetText(P("config")));
+    }
+    else if (arguments.subCommandName.Compare(P("editconf")))
+    {
+        EditFeatureConfig(
+            arguments.parameters.GetText(P("feature")),
+            arguments.parameters.GetText(P("config")),
+            arguments.parameters.GetText(P("variable path")),
+            arguments.parameters.GetText(P("value")));
+    }
 }
 
 protected function EnableFeature(BaseText featureName, BaseText configParameter)
@@ -75,9 +109,9 @@ protected function EnableFeature(BaseText featureName, BaseText configParameter)
     if (featureClass == none) {
         return;
     }
-    wasEnabled = featureClass.static.IsEnabled();
-    oldConfig = featureClass.static.GetCurrentConfig();
-    newConfig = GetConfigFromParameter(configParameter, featureClass);
+    wasEnabled  = featureClass.static.IsEnabled();
+    oldConfig   = featureClass.static.GetCurrentConfig();
+    newConfig   = PickConfigBasedOnParameter(featureClass, configParameter);
     //  Already enabled with the same config!
     if (oldConfig != none && oldConfig.Compare(newConfig, SCASE_INSENSITIVE))
     {
@@ -122,9 +156,45 @@ protected function DisableFeature(Text featureName)
     }
 }
 
-protected function Text GetConfigFromParameter(
-    BaseText        configParameter,
-    class<Feature>  featureClass)
+protected function ShowFeatureConfig(
+    BaseText featureName,
+    BaseText configParameter)
+{
+    local MutableText       dataAsJSON;
+    local HashTable         currentData, pendingData;
+    local class<Feature>    featureClass;
+
+    featureClass = LoadFeatureClass(featureName);
+    if (featureClass == none)       return;
+    if (configParameter == none)    return;
+
+    currentData = GetCurrentConfigData(featureClass, configParameter);
+    if (currentData == none)
+    {
+        announcer.AnnounceFailedNoDataForConfig(featureClass, configParameter);
+        return;
+    }
+    //  Display current data
+    dataAsJSON = _.json.PrettyPrint(currentData);
+    announcer.AnnounceCurrentConfig(featureClass, configParameter);
+    callerConsole.Flush().WriteLine(dataAsJSON);
+    _.memory.Free(dataAsJSON);
+    //  Display pending data
+    pendingData = GetPendingConfigData(featureClass, configParameter);
+    if (pendingData != none)
+    {
+        dataAsJSON = _.json.PrettyPrint(pendingData);
+        announcer.AnnouncePendingConfig(featureClass, configParameter);
+        callerConsole.Flush().WriteLine(dataAsJSON);
+        _.memory.Free(dataAsJSON);
+    }
+    _.memory.Free(pendingData);
+    _.memory.Free(currentData);
+}
+
+protected function Text PickConfigBasedOnParameter(
+    class<Feature>  featureClass,
+    BaseText        configParameter)
 {
     local Text                  resolvedConfig;
     local class<FeatureConfig>  configClass;
@@ -240,6 +310,210 @@ protected function ShowFeature(class<Feature> feature)
     _.memory.Free(autoConfig);
     _.memory.Free(builder);
 }
+//TODO: find where `null` spam is from
+//TODO add failure color to fail announcements and good color to good ones - add them too!
+protected function EditFeatureConfig(
+    BaseText featureName,
+    BaseText configParameter,
+    BaseText pathToValue,
+    BaseText newValue)
+{
+    local int               arrayIndex;
+    local Text              topValue;
+    local HashTable         pendingData;
+    local JSONPointer       pointer;
+    local Parser            parser;
+    local AcediaObject      jsonValue, container;
+    local class<Feature>    featureClass;
+
+    featureClass = LoadFeatureClass(featureName);
+    if (featureClass == none) {
+        return;
+    }
+    pendingData = GetPendingConfigData(featureClass, configParameter, true);
+    if (pendingData == none)
+    {
+        announcer.AnnounceFailedConfigMissing(configParameter);
+        return;
+    }
+    //  Get guaranteed not-`none` JSON value
+    parser = newValue.Parse();
+    jsonValue = _.json.ParseWith(parser);
+    parser.FreeSelf();
+    if (jsonValue == none) {
+        jsonValue = newValue.Copy();
+    }
+    //
+    pointer = _.json.Pointer(pathToValue);
+    if (pointer.IsEmpty())
+    {
+        if (jsonValue.class != class'HashTable') {
+            announcer.AnnounceFailedExpectedObject();
+        }
+        else {
+            ChangePendingConfigData(featureClass, configParameter, HashTable(jsonValue));
+        }
+        jsonValue.FreeSelf();
+        return;
+    }
+    topValue = pointer.Pop();
+    container = pendingData.GetItemByJSON(pointer);
+    if (container == none)
+    {
+        announcer.AnnounceFailedBadPointer(featureClass, configParameter, pathToValue);
+        pointer.FreeSelf();
+        topValue.FreeSelf();
+        return;
+    }
+    if (HashTable(container) != none) {
+        HashTable(container).SetItem(topValue, jsonValue);
+    }
+    if (ArrayList(container) != none)
+    {
+        parser = topValue.Parse();
+        if (parser.MInteger(arrayIndex, 10).Ok()) {
+            ArrayList(container).SetItem(arrayIndex, jsonValue);
+        }
+        else if (topValue.Compare(P("-"))) {
+             ArrayList(container).AddItem(jsonValue);
+        }
+        else {
+            announcer.AnnounceFailedBadPointer(featureClass, configParameter, pathToValue);
+        }
+        parser.FreeSelf();
+    }
+    pointer.FreeSelf();
+    topValue.FreeSelf();
+}
+
+/*//  TODO: autoconf, newconf, deleteconf, setconf
+
+struct EditedConfigs
+{
+    var class<Feature>  featureClass;
+    var HashTable       pendingSaves;
+};
+var private array<EditedConfigs> configEdits;*/
+
+private function HashTable GetConfigData(
+    class<Feature>  featureClass,
+    BaseText        configName)
+{
+    local HashTable result;
+
+    if (featureClass == none)   return none;
+    if (configName == none)     return none;
+
+    result = GetPendingConfigData(featureClass, configName);
+    if (result != none) {
+        return result;
+    }
+    return GetCurrentConfigData(featureClass, configName);
+}
+
+private function HashTable GetCurrentConfigData(
+    class<Feature>  featureClass,
+    BaseText        configName)
+{
+    local class<FeatureConfig> configClass;
+
+    if (featureClass == none)   return none;
+    if (configName == none)     return none;
+
+    configClass = featureClass.default.configClass;
+    if (configClass == none)
+    {
+        announcer.AnnounceFailedNoConfigClass(featureClass);
+        return none;
+    }
+    return configClass.static.LoadData(configName);
+}
+
+private function int GetPendingConfigDataIndex(
+    class<Feature> featureClass)
+{
+    local int i;
+
+    for (i = 0; i < configEdits.length; i ++)
+    {
+        if (configEdits[i].featureClass == featureClass) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+private function ChangePendingConfigData(
+    class<Feature>  featureClass,
+    BaseText        configName,
+    HashTable       newData)
+{
+    local int   editsIndex;
+    local Text  lowerCaseConfigName;
+
+    if (newData == none)    return;
+    if (configName == none) return;
+    editsIndex = GetPendingConfigDataIndex(featureClass);
+    if (editsIndex < 0)     return;
+
+    lowerCaseConfigName = configName.LowerCopy();
+    configEdits[editsIndex].pendingSaves.SetItem(configName, newData);
+    lowerCaseConfigName.FreeSelf();
+}
+
+private function HashTable GetPendingConfigData(
+    class<Feature>  featureClass,
+    BaseText        configName,
+    optional bool   createIfMissing)
+{
+    local int           editsIndex;
+    local Text          lowerCaseConfigName;
+    local HashTable     result;
+    local EditedConfigs newRecord;
+
+    if (featureClass == none)   return none;
+    if (configName == none)     return none;
+
+    lowerCaseConfigName = configName.LowerCopy();
+    editsIndex = GetPendingConfigDataIndex(featureClass);
+    if (editsIndex >= 0)
+    {
+        result = configEdits[editsIndex]
+            .pendingSaves
+            .GetHashTable(lowerCaseConfigName);
+        if (result != none)
+        {
+            lowerCaseConfigName.FreeSelf();
+            return result;
+        }
+    }
+    if (createIfMissing)
+    {
+        if (editsIndex < 0)
+        {
+            editsIndex = configEdits.length;
+            newRecord.featureClass = featureClass;
+            newRecord.pendingSaves = _.collections.EmptyHashTable();
+            configEdits[editsIndex] = newRecord;
+        }
+        result = GetCurrentConfigData(featureClass, configName);
+        if (result != none)
+        {
+            configEdits[editsIndex]
+                .pendingSaves
+                .SetItem(lowerCaseConfigName, result);
+        }
+    }
+    lowerCaseConfigName.FreeSelf();
+    return result;
+}
+
+//  3. Add `editconf` subcommand
+//  4. Add '*' for edited configs in feature display
+//  5. Add `saveconf` and `--save` flag
+//  6. Add `removeconf`
+//  7. Add `newconf`
+//  8. Add `autoconf` for setting auto config
 
 defaultproperties
 {

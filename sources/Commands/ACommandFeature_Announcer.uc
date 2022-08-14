@@ -21,17 +21,22 @@ class ACommandFeature_Announcer extends CommandAnnouncer;
 
 var private AnnouncementVariations enabledFeature, disabledFeature;
 var private AnnouncementVariations swappedConfig;
+var private AnnouncementVariations showCurrentConfig, showPendingConfig;
 var private AnnouncementVariations failedToLoadFeatureClass;
 var private AnnouncementVariations failedNoConfigProvided, failedConfigMissing;
 var private AnnouncementVariations failedCannotEnableFeature;
 var private AnnouncementVariations failedNoConfigClass;
 var private AnnouncementVariations failedAlreadyEnabled, failedAlreadyDisabled;
+var private AnnouncementVariations failedNoDataForConfig, failedExpectedObject;
+var private AnnouncementVariations failedBadPointer;
 
 protected function Finalizer()
 {
     FreeVariations(enabledFeature);
     FreeVariations(disabledFeature);
     FreeVariations(swappedConfig);
+    FreeVariations(showCurrentConfig);
+    FreeVariations(showPendingConfig);
     FreeVariations(failedToLoadFeatureClass);
     FreeVariations(failedNoConfigProvided);
     FreeVariations(failedConfigMissing);
@@ -39,6 +44,9 @@ protected function Finalizer()
     FreeVariations(failedNoConfigClass);
     FreeVariations(failedAlreadyEnabled);
     FreeVariations(failedAlreadyDisabled);
+    FreeVariations(failedNoDataForConfig);
+    FreeVariations(failedExpectedObject);
+    FreeVariations(failedBadPointer);
     super.Finalizer();
 }
 
@@ -115,6 +123,40 @@ public final function AnnounceSwappedConfig(
             .Arg(newConfig);
     }
     MakeAnnouncement(swappedConfig);
+}
+
+public final function AnnounceCurrentConfig(
+    class<Feature>  featureClass,
+    BaseText        config)
+{
+    if (!showCurrentConfig.initialized)
+    {
+        showCurrentConfig.initialized = true;
+        showCurrentConfig.toSelfReport = _.text.MakeTemplate_S(
+            "Current config \"%2\" for feature {$TextEmphasis `%1`}:");
+    }
+    showCurrentConfig.toSelfReport
+        .Reset()
+        .ArgClass(featureClass)
+        .Arg(config);
+    MakeAnnouncement(showCurrentConfig);
+}
+
+public final function AnnouncePendingConfig(
+    class<Feature>  featureClass,
+    BaseText        config)
+{
+    if (!showPendingConfig.initialized)
+    {
+        showPendingConfig.initialized = true;
+        showPendingConfig.toSelfReport = _.text.MakeTemplate_S(
+            "Pending config \"%2\" for feature {$TextEmphasis `%1`}:");
+    }
+    showPendingConfig.toSelfReport
+        .Reset()
+        .ArgClass(featureClass)
+        .Arg(config);
+    MakeAnnouncement(showPendingConfig);
 }
 
 public final function AnnounceFailedToLoadFeatureClass(BaseText failedClassName)
@@ -217,6 +259,55 @@ public final function AnnounceFailedAlreadyEnabled(
         .ArgClass(featureClass)
         .Arg(config);
     MakeAnnouncement(failedAlreadyEnabled);
+}
+
+public final function AnnounceFailedNoDataForConfig(
+    class<Feature>  featureClass,
+    BaseText        config)
+{
+    if (!failedNoDataForConfig.initialized)
+    {
+        failedNoDataForConfig.initialized = true;
+        failedNoDataForConfig.toSelfReport = _.text.MakeTemplate_S(
+            "Feature {$TextEmphasis `%1`} is missing data for config \"%2\"");
+    }
+    failedNoDataForConfig.toSelfReport
+        .Reset()
+        .ArgClass(featureClass)
+        .Arg(config);
+    MakeAnnouncement(failedNoDataForConfig);
+}
+
+public final function AnnounceFailedExpectedObject()
+{
+    if (!failedExpectedObject.initialized)
+    {
+        failedExpectedObject.initialized = true;
+        failedExpectedObject.toSelfReport = _.text.MakeTemplate_S(
+            "When changing the value of the whole config, a JSON object must be"
+            @ "provided");
+    }
+    MakeAnnouncement(failedExpectedObject);
+}
+
+public final function AnnounceFailedBadPointer(
+    class<Feature>  featureClass,
+    BaseText        config,
+    BaseText        pointer)
+{
+    if (!failedBadPointer.initialized)
+    {
+        failedBadPointer.initialized = true;
+        failedBadPointer.toSelfReport = _.text.MakeTemplate_S(
+            "Provided JSON pointer \"%3\" is invalid for config \"%2\" of"
+            @ "feature {$TextEmphasis `%1`}");
+    }
+    failedBadPointer.toSelfReport
+        .Reset()
+        .ArgClass(featureClass)
+        .Arg(config)
+        .Arg(pointer);
+    MakeAnnouncement(failedBadPointer);
 }
 
 defaultproperties
