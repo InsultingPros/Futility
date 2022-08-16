@@ -178,7 +178,7 @@ public final function AnnounceFailedNoConfigProvided(
     {
         failedNoConfigProvided.initialized = true;
         failedNoConfigProvided.toSelfReport = _.text.MakeTemplate_S(
-            "{$TextFailue No config specified} and {$TextFailure no"
+            "{$TextFailure No config specified} and {$TextFailure no"
             @ "auto-enabled config} exists for feature {$TextEmphasis `%1`}");
     }
     failedNoConfigProvided.toSelfReport.Reset().ArgClass(featureClass);
@@ -191,7 +191,7 @@ public final function AnnounceFailedConfigMissing(BaseText config)
     {
         failedConfigMissing.initialized = true;
         failedConfigMissing.toSelfReport = _.text.MakeTemplate_S(
-            "Specified config \"%1\" {$TextFailue doesn't exist}");
+            "Specified config \"%1\" {$TextFailure doesn't exist}");
     }
     failedConfigMissing.toSelfReport.Reset().Arg(config);
     MakeAnnouncement(failedConfigMissing);
@@ -269,7 +269,8 @@ public final function AnnounceFailedNoDataForConfig(
     {
         failedNoDataForConfig.initialized = true;
         failedNoDataForConfig.toSelfReport = _.text.MakeTemplate_S(
-            "Feature {$TextEmphasis `%1`} is missing data for config \"%2\"");
+            "Feature {$TextEmphasis `%1`} is {$TextFailure missing data} for"
+            @ "config \"%2\"");
     }
     failedNoDataForConfig.toSelfReport
         .Reset()
@@ -284,8 +285,8 @@ public final function AnnounceFailedExpectedObject()
     {
         failedExpectedObject.initialized = true;
         failedExpectedObject.toSelfReport = _.text.MakeTemplate_S(
-            "When changing the value of the whole config, a JSON object must be"
-            @ "provided");
+            "Value change {$TextFailure failed}, because when changing"
+            @ "the value of the whole config, a JSON object must be provided");
     }
     MakeAnnouncement(failedExpectedObject);
 }
@@ -299,8 +300,8 @@ public final function AnnounceFailedBadPointer(
     {
         failedBadPointer.initialized = true;
         failedBadPointer.toSelfReport = _.text.MakeTemplate_S(
-            "Provided JSON pointer \"%3\" is invalid for config \"%2\" of"
-            @ "feature {$TextEmphasis `%1`}");
+            "Provided JSON pointer \"%3\" is {$TextFailure invalid} for config"
+            @ "\"%2\" of feature {$TextEmphasis `%1`}");
     }
     failedBadPointer.toSelfReport
         .Reset()
